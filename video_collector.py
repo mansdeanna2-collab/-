@@ -24,29 +24,38 @@ import requests
 import json
 import time
 import argparse
+import csv
 import os
 from datetime import datetime
 from typing import List, Dict, Optional, Any
+
+# 默认配置
+DEFAULT_API_URL = "https://api.sq03.shop/api.php/provide/vod/"
+DEFAULT_TIMEOUT = 30
+DEFAULT_DELAY = 1.0
 
 
 class VideoCollector:
     """视频采集器类"""
     
-    def __init__(self, base_url: str = "https://api.sq03.shop/api.php/provide/vod/"):
+    def __init__(self, base_url: str = DEFAULT_API_URL, timeout: int = DEFAULT_TIMEOUT):
         """
         初始化采集器
         
         Args:
             base_url: API基础URL
+            timeout: 请求超时时间(秒)
         """
         self.base_url = base_url
+        self.timeout = timeout
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Accept': 'application/json, text/plain, */*',
             'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
         })
         self.collected_data: List[Dict] = []
+        self.collection_params: Dict[str, Any] = {}  # 记录采集参数
         
     def get_categories(self) -> List[Dict]:
         """
@@ -57,7 +66,7 @@ class VideoCollector:
         """
         try:
             params = {'ac': 'list'}
-            response = self.session.get(self.base_url, params=params, timeout=30)
+            response = self.session.get(self.base_url, params=params, timeout=self.timeout)
             response.raise_for_status()
             data = response.json()
             
@@ -99,7 +108,7 @@ class VideoCollector:
             
         try:
             print(f"📡 正在请求第 {page} 页数据...")
-            response = self.session.get(self.base_url, params=params, timeout=30)
+            response = self.session.get(self.base_url, params=params, timeout=self.timeout)
             response.raise_for_status()
             data = response.json()
             
@@ -120,6 +129,8 @@ class VideoCollector:
             return {'total': 0, 'page': page, 'page_count': 0, 'list': []}
         except json.JSONDecodeError as e:
             print(f"❌ JSON解析失败: {e}")
+            if 'response' in dir():
+                print(f"   响应内容: {response.text[:200]}...")
             return {'total': 0, 'page': page, 'page_count': 0, 'list': []}
     
     def get_video_detail(self, vod_id: int) -> Optional[Dict]:
@@ -138,7 +149,7 @@ class VideoCollector:
         }
         
         try:
-            response = self.session.get(self.base_url, params=params, timeout=30)
+            response = self.session.get(self.base_url, params=params, timeout=self.timeout)
             response.raise_for_status()
             data = response.json()
             
@@ -152,7 +163,7 @@ class VideoCollector:
     
     def collect_all(self, type_id: Optional[int] = None, keyword: Optional[str] = None,
                     hours: Optional[int] = None, max_pages: Optional[int] = None,
-                    start_page: int = 1, delay: float = 1.0) -> List[Dict]:
+                    start_page: int = 1, delay: float = DEFAULT_DELAY) -> List[Dict]:
         """
         采集全部视频
         
@@ -162,11 +173,22 @@ class VideoCollector:
             hours: 获取多少小时内更新的
             max_pages: 最大采集页数
             start_page: 起始页码
-            delay: 请求间隔(秒)
+            delay: 请求间隔(秒), 必须为正数
             
         Returns:
             采集到的视频列表
         """
+        # 验证delay参数
+        if delay <= 0:
+            print(f"⚠️ delay必须为正数，使用默认值 {DEFAULT_DELAY} 秒")
+            delay = DEFAULT_DELAY
+        
+        # 记录采集参数
+        self.collection_params = {
+            'type_id': type_id,
+            'keyword': keyword,
+            'hours': hours
+        }
         print("\n" + "="*60)
         print("🚀 开始视频采集任务")
         print("="*60)
@@ -238,14 +260,25 @@ class VideoCollector:
         
         if not filename:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"videos_{timestamp}"
+            # 包含采集参数信息
+            params_str = ""
+            if self.collection_params.get('type_id'):
+                params_str += f"_t{self.collection_params['type_id']}"
+            if self.collection_params.get('keyword'):
+                params_str += f"_{self.collection_params['keyword'][:10]}"
+            filename = f"videos{params_str}_{timestamp}"
         
         filepath = f"{filename}.json"
+        
+        # 检查文件是否存在
+        if os.path.exists(filepath):
+            print(f"⚠️ 文件 {filepath} 已存在，将被覆盖")
         
         output = {
             'collected_at': datetime.now().isoformat(),
             'total_count': len(self.collected_data),
             'source_url': self.base_url,
+            'collection_params': self.collection_params,
             'data': self.collected_data
         }
         
@@ -257,7 +290,7 @@ class VideoCollector:
     
     def save_to_csv(self, filename: Optional[str] = None) -> str:
         """
-        保存采集数据到CSV文件 (简化版)
+        保存采集数据到CSV文件
         
         Args:
             filename: 文件名(不含扩展名)
@@ -271,28 +304,37 @@ class VideoCollector:
         
         if not filename:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"videos_{timestamp}"
+            # 包含采集参数信息
+            params_str = ""
+            if self.collection_params.get('type_id'):
+                params_str += f"_t{self.collection_params['type_id']}"
+            if self.collection_params.get('keyword'):
+                params_str += f"_{self.collection_params['keyword'][:10]}"
+            filename = f"videos{params_str}_{timestamp}"
         
         filepath = f"{filename}.csv"
         
-        # CSV标题
-        headers = ['vod_id', 'vod_name', 'type_name', 'vod_time', 'vod_remarks', 'vod_play_url']
+        # 检查文件是否存在
+        if os.path.exists(filepath):
+            print(f"⚠️ 文件 {filepath} 已存在，将被覆盖")
         
-        with open(filepath, 'w', encoding='utf-8-sig') as f:
-            # 写入标题
-            f.write(','.join(headers) + '\n')
+        # CSV字段
+        fieldnames = ['vod_id', 'vod_name', 'type_name', 'vod_time', 'vod_remarks', 'vod_play_url']
+        
+        with open(filepath, 'w', encoding='utf-8-sig', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
+            writer.writeheader()
             
-            # 写入数据
             for video in self.collected_data:
-                row = [
-                    str(video.get('vod_id', '')),
-                    f'"{video.get("vod_name", "").replace('"', '""')}"',
-                    f'"{video.get("type_name", "")}"',
-                    f'"{video.get("vod_time", "")}"',
-                    f'"{video.get("vod_remarks", "")}"',
-                    f'"{video.get("vod_play_url", "")[:200]}"'  # 播放链接可能很长，截取前200字符
-                ]
-                f.write(','.join(row) + '\n')
+                row = {
+                    'vod_id': video.get('vod_id', ''),
+                    'vod_name': video.get('vod_name', ''),
+                    'type_name': video.get('type_name', ''),
+                    'vod_time': video.get('vod_time', ''),
+                    'vod_remarks': video.get('vod_remarks', ''),
+                    'vod_play_url': video.get('vod_play_url', '')  # 完整保存播放链接
+                }
+                writer.writerow(row)
         
         print(f"💾 数据已保存到: {filepath}")
         return filepath
