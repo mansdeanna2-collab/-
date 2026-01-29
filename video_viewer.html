@@ -450,6 +450,73 @@
             }
         }
 
+        // Base64 signatures for common image formats
+        const BASE64_SIGNATURES = {
+            '/9j/': 'image/jpeg',      // JPEG
+            'iVBOR': 'image/png',       // PNG
+            'R0lGO': 'image/gif',       // GIF
+            'UklGR': 'image/webp',      // WebP (RIFF header)
+            'Qk': 'image/bmp'           // BMP
+        };
+
+        // Detect if content is raw base64 image data and return MIME type
+        function detectBase64Image(content) {
+            if (!content || typeof content !== 'string') return null;
+            const trimmed = content.trim();
+            for (const [signature, mimeType] of Object.entries(BASE64_SIGNATURES)) {
+                if (trimmed.startsWith(signature)) {
+                    return mimeType;
+                }
+            }
+            return null;
+        }
+
+        // Convert raw base64 content to data URL
+        function toDataUrl(base64Content, mimeType) {
+            // Remove any whitespace from base64 content
+            const cleanBase64 = base64Content.trim().replace(/\s/g, '');
+            return `data:${mimeType};base64,${cleanBase64}`;
+        }
+
+        // Load image with base64 detection and conversion
+        async function loadImageWithBase64Detection(imgElement, url) {
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    mode: 'cors',
+                    credentials: 'omit'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const contentType = response.headers.get('content-type') || '';
+                
+                // If the response is an image binary, use the URL directly
+                if (contentType.startsWith('image/')) {
+                    imgElement.src = url;
+                    return;
+                }
+                
+                // If content-type is text or unknown, check if it's raw base64
+                const text = await response.text();
+                const detectedMimeType = detectBase64Image(text);
+                
+                if (detectedMimeType) {
+                    // Convert raw base64 to data URL
+                    imgElement.src = toDataUrl(text, detectedMimeType);
+                } else {
+                    // Not recognized as base64, try using URL directly
+                    imgElement.src = url;
+                }
+            } catch (error) {
+                // On fetch error (CORS, network, etc.), fall back to direct URL loading
+                // The browser might be able to load it even if fetch fails
+                imgElement.src = url;
+            }
+        }
+
         // File input handler
         document.getElementById('fileInput').addEventListener('change', function(e) {
             const file = e.target.files[0];
@@ -566,7 +633,7 @@
                     <div class="video-card" data-index="${index}" role="button" tabindex="0" aria-label="播放 ${escapeHtml(video.vod_name || '未知标题')}">
                         <div class="video-thumbnail">
                             ${video.vod_pic && isValidUrl(video.vod_pic) ? 
-                                `<img src="${escapeHtml(video.vod_pic)}" alt="${escapeHtml(video.vod_name || '')}" onerror="handleImageError(this)" loading="lazy">` : 
+                                `<img data-src="${escapeHtml(video.vod_pic)}" alt="${escapeHtml(video.vod_name || '')}" onerror="handleImageError(this)" loading="lazy">` : 
                                 '<div class="placeholder">🎬</div>'}
                             <div class="play-icon"></div>
                         </div>
@@ -582,6 +649,15 @@
             </div>`;
 
             container.innerHTML = html;
+            
+            // Load images with base64 detection
+            const images = container.querySelectorAll('img[data-src]');
+            images.forEach(img => {
+                const url = img.dataset.src;
+                if (url) {
+                    loadImageWithBase64Detection(img, url);
+                }
+            });
             
             // Add event delegation for video cards
             document.getElementById('videoGrid').addEventListener('click', function(e) {
