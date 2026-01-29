@@ -473,13 +473,27 @@
 
         // Convert raw base64 content to data URL
         function toDataUrl(base64Content, mimeType) {
+            // Validate mimeType is a valid image type
+            if (!mimeType || !mimeType.startsWith('image/')) {
+                return null;
+            }
             // Remove any whitespace from base64 content
             const cleanBase64 = base64Content.trim().replace(/\s/g, '');
             return `data:${mimeType};base64,${cleanBase64}`;
         }
 
+        // Maximum size for reading text response (5MB)
+        const MAX_TEXT_SIZE = 5 * 1024 * 1024;
+
         // Load image with base64 detection and conversion
         async function loadImageWithBase64Detection(imgElement, url) {
+            // Validate URL before fetching
+            if (!isValidUrl(url)) {
+                imgElement.src = '';
+                handleImageError(imgElement);
+                return;
+            }
+            
             try {
                 const response = await fetch(url, {
                     method: 'GET',
@@ -499,13 +513,33 @@
                     return;
                 }
                 
+                // Check content length to prevent memory issues
+                const contentLength = parseInt(response.headers.get('content-length') || '0', 10);
+                if (contentLength > MAX_TEXT_SIZE) {
+                    // Too large for base64 text, try as URL directly
+                    imgElement.src = url;
+                    return;
+                }
+                
                 // If content-type is text or unknown, check if it's raw base64
                 const text = await response.text();
+                
+                // Additional size check after reading
+                if (text.length > MAX_TEXT_SIZE) {
+                    imgElement.src = url;
+                    return;
+                }
+                
                 const detectedMimeType = detectBase64Image(text);
                 
                 if (detectedMimeType) {
                     // Convert raw base64 to data URL
-                    imgElement.src = toDataUrl(text, detectedMimeType);
+                    const dataUrl = toDataUrl(text, detectedMimeType);
+                    if (dataUrl) {
+                        imgElement.src = dataUrl;
+                    } else {
+                        imgElement.src = url;
+                    }
                 } else {
                     // Not recognized as base64, try using URL directly
                     imgElement.src = url;
@@ -516,6 +550,56 @@
                 imgElement.src = url;
             }
         }
+        
+        // IntersectionObserver for lazy loading images with base64 detection
+        let imageObserver = null;
+        function initImageObserver() {
+            if (imageObserver) {
+                imageObserver.disconnect();
+            }
+            
+            if ('IntersectionObserver' in window) {
+                imageObserver = new IntersectionObserver(function(entries) {
+                    entries.forEach(function(entry) {
+                        if (entry.isIntersecting) {
+                            const img = entry.target;
+                            const url = img.dataset.src;
+                            if (url && !img.src) {
+                                loadImageWithBase64Detection(img, url);
+                            }
+                            imageObserver.unobserve(img);
+                        }
+                    });
+                }, {
+                    rootMargin: '50px 0px', // Load images 50px before they enter viewport
+                    threshold: 0.01
+                });
+            }
+        }
+        
+        // Observe images for lazy loading
+        function observeImages(container) {
+            if (imageObserver) {
+                const images = container.querySelectorAll('img[data-src]');
+                images.forEach(function(img) {
+                    if (!img.src) {
+                        imageObserver.observe(img);
+                    }
+                });
+            } else {
+                // Fallback: load all images immediately if IntersectionObserver not supported
+                const images = container.querySelectorAll('img[data-src]');
+                images.forEach(function(img) {
+                    const url = img.dataset.src;
+                    if (url && !img.src) {
+                        loadImageWithBase64Detection(img, url);
+                    }
+                });
+            }
+        }
+        
+        // Initialize the observer when page loads
+        initImageObserver();
 
         // File input handler
         document.getElementById('fileInput').addEventListener('change', function(e) {
@@ -650,36 +734,31 @@
 
             container.innerHTML = html;
             
-            // Load images with base64 detection
-            const images = container.querySelectorAll('img[data-src]');
-            images.forEach(img => {
-                const url = img.dataset.src;
-                if (url) {
-                    loadImageWithBase64Detection(img, url);
-                }
-            });
-            
-            // Add event delegation for video cards
-            document.getElementById('videoGrid').addEventListener('click', function(e) {
+            // Observe images for lazy loading with base64 detection
+            observeImages(container);
+        }
+        
+        // Event delegation for video cards (click handler)
+        // Using event delegation on container to avoid duplicate listeners
+        document.getElementById('videoContainer').addEventListener('click', function(e) {
+            const card = e.target.closest('.video-card');
+            if (card) {
+                const index = parseInt(card.dataset.index, 10);
+                playVideo(index);
+            }
+        });
+        
+        // Event delegation for video cards (keyboard handler)
+        document.getElementById('videoContainer').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
                 const card = e.target.closest('.video-card');
                 if (card) {
+                    e.preventDefault();
                     const index = parseInt(card.dataset.index, 10);
                     playVideo(index);
                 }
-            });
-            
-            // Support keyboard navigation for video cards
-            document.getElementById('videoGrid').addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    const card = e.target.closest('.video-card');
-                    if (card) {
-                        e.preventDefault();
-                        const index = parseInt(card.dataset.index, 10);
-                        playVideo(index);
-                    }
-                }
-            });
-        }
+            }
+        });
 
         // Play video
         function playVideo(index) {
