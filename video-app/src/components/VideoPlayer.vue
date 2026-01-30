@@ -9,8 +9,8 @@
     >
       <video
         ref="videoElement"
-        :src="currentSrc"
-        :poster="poster"
+        :src="safeEncodeURI(currentSrc)"
+        :poster="formatImageUrl(poster)"
         controls
         playsinline
         webkit-playsinline
@@ -123,7 +123,9 @@ export default {
       touchStartTime: 0,
       isSeeking: false,
       gestureText: '',
-      gestureTimeout: null
+      gestureTimeout: null,
+      // Track if initial autoplay has been triggered
+      hasAutoplayTriggered: false
     }
   },
   watch: {
@@ -148,6 +150,9 @@ export default {
   },
   methods: {
     parseSource(src) {
+      // Reset autoplay flag when source changes
+      this.hasAutoplayTriggered = false
+      
       if (!src) {
         this.currentSrc = ''
         this.episodes = []
@@ -181,13 +186,13 @@ export default {
         this.currentSrc = this.episodes[index].url
         this.loading = true
         this.error = false
+        // Reset autoplay flag for new episode
+        this.hasAutoplayTriggered = false
         
         this.$nextTick(() => {
           if (this.$refs.videoElement) {
             this.$refs.videoElement.load()
-            if (this.autoplay) {
-              this.$refs.videoElement.play()
-            }
+            // Autoplay is now handled in onCanPlay() for consistency
           }
         })
       }
@@ -229,6 +234,13 @@ export default {
     
     onCanPlay() {
       this.buffering = false
+      // Auto-play when video is ready and autoplay is enabled (only trigger once per video load)
+      if (this.autoplay && !this.hasAutoplayTriggered && this.$refs.videoElement && this.$refs.videoElement.paused) {
+        this.hasAutoplayTriggered = true
+        this.$refs.videoElement.play().catch(err => {
+          console.log('Auto-play blocked:', err)
+        })
+      }
     },
     
     onTimeUpdate() {
@@ -397,6 +409,71 @@ export default {
     setPlaybackRate(rate) {
       this.playbackRate = String(rate)
       this.changePlaybackRate()
+    },
+    
+    // Format image URL - handles base64 content, data URLs, and regular URLs
+    formatImageUrl(url) {
+      if (!url) return ''
+      
+      // If already a data URL, return as-is
+      if (url.startsWith('data:')) {
+        return url
+      }
+      
+      // If already a valid URL (http/https), encode and return
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        try {
+          const decoded = decodeURI(url)
+          if (decoded !== url) {
+            return url // Already encoded
+          }
+          return encodeURI(url)
+        } catch (e) {
+          return url
+        }
+      }
+      
+      // Check for known base64 image headers first
+      // /9j/ is the base64 encoding of JPEG file signature (FFD8FF)
+      if (url.startsWith('/9j/')) {
+        return 'data:image/jpeg;base64,' + url
+      }
+      // iVBOR is the base64 encoding of PNG file signature
+      if (url.startsWith('iVBOR')) {
+        return 'data:image/png;base64,' + url
+      }
+      // R0lGOD is the base64 encoding of GIF file signature
+      if (url.startsWith('R0lGOD')) {
+        return 'data:image/gif;base64,' + url
+      }
+      
+      // For other potential base64 content: must be long and contain only base64 characters
+      // This is a conservative check to avoid false positives
+      if (url.length > 100 && /^[A-Za-z0-9+/]+=*$/.test(url.replace(/\s/g, ''))) {
+        // Default to PNG for unknown base64 content
+        return 'data:image/png;base64,' + url
+      }
+      
+      // Otherwise, treat as regular URL and encode
+      try {
+        return encodeURI(url)
+      } catch (e) {
+        return url
+      }
+    },
+    
+    // Safely encode URL for video sources (doesn't need base64 handling for video URLs)
+    safeEncodeURI(url) {
+      if (!url) return ''
+      try {
+        const decoded = decodeURI(url)
+        if (decoded !== url) {
+          return url // Already encoded
+        }
+        return encodeURI(url)
+      } catch (e) {
+        return url
+      }
     }
   }
 }

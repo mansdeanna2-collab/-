@@ -3,7 +3,7 @@
     <div class="thumbnail">
       <img 
         v-if="video.video_image" 
-        :src="video.video_image" 
+        :src="formatImageUrl(video.video_image)" 
         :alt="video.video_title"
         @error="handleImageError"
         loading="lazy"
@@ -59,6 +59,56 @@ export default {
         return (count / 10000).toFixed(1) + '万'
       }
       return count.toString()
+    },
+    // Format image URL - handles base64 content, data URLs, and regular URLs
+    formatImageUrl(url) {
+      if (!url) return ''
+      
+      // If already a data URL, return as-is
+      if (url.startsWith('data:')) {
+        return url
+      }
+      
+      // If already a valid URL (http/https), encode and return
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        try {
+          const decoded = decodeURI(url)
+          if (decoded !== url) {
+            return url // Already encoded
+          }
+          return encodeURI(url)
+        } catch (e) {
+          return url
+        }
+      }
+      
+      // Check for known base64 image headers first
+      // /9j/ is the base64 encoding of JPEG file signature (FFD8FF)
+      if (url.startsWith('/9j/')) {
+        return 'data:image/jpeg;base64,' + url
+      }
+      // iVBOR is the base64 encoding of PNG file signature
+      if (url.startsWith('iVBOR')) {
+        return 'data:image/png;base64,' + url
+      }
+      // R0lGOD is the base64 encoding of GIF file signature
+      if (url.startsWith('R0lGOD')) {
+        return 'data:image/gif;base64,' + url
+      }
+      
+      // For other potential base64 content: must be long and contain only base64 characters
+      // This is a conservative check to avoid false positives
+      if (url.length > 100 && /^[A-Za-z0-9+/]+=*$/.test(url.replace(/\s/g, ''))) {
+        // Default to PNG for unknown base64 content
+        return 'data:image/png;base64,' + url
+      }
+      
+      // Otherwise, treat as regular URL and encode
+      try {
+        return encodeURI(url)
+      } catch (e) {
+        return url
+      }
     }
   }
 }
