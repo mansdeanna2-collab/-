@@ -23,6 +23,9 @@ MySQL连接配置通过环境变量设置:
 - MYSQL_USER: 用户名
 - MYSQL_PASSWORD: 密码
 
+SQLite配置:
+- SQLITE_DB_PATH: SQLite数据库文件路径 (默认: /app/data/videos.db)
+
 使用方法:
     from video_database import VideoDatabase
     
@@ -84,7 +87,24 @@ class VideoDatabase:
     或手动调用 close() 方法。
     """
     
-    DEFAULT_DB_NAME = "videos.db"
+    @staticmethod
+    def _get_default_db_path():
+        """
+        获取默认数据库路径
+        
+        优先级:
+        1. SQLITE_DB_PATH 环境变量 (如果设置且非空)
+        2. /app/data/videos.db (Docker环境，当目录存在时)
+        3. data/videos.db (本地开发)
+        """
+        env_path = os.environ.get('SQLITE_DB_PATH', '').strip()
+        if env_path:
+            return env_path
+        # Docker环境优先使用绝对路径
+        if os.path.isdir('/app/data'):
+            return '/app/data/videos.db'
+        # 本地开发使用相对路径
+        return 'data/videos.db'
     
     def __init__(self, use_mysql: bool = True, db_path: Optional[str] = None, 
                  mysql_config: Optional[Dict[str, Any]] = None, verbose: bool = True):
@@ -93,11 +113,14 @@ class VideoDatabase:
         
         Args:
             use_mysql: 是否使用MySQL，默认True。如果pymysql未安装，自动降级到SQLite
-            db_path: SQLite数据库文件路径，默认为当前目录下的 videos.db
+            db_path: SQLite数据库文件路径。默认路径取决于环境:
+                     - SQLITE_DB_PATH环境变量 (如果设置)
+                     - Docker环境: /app/data/videos.db
+                     - 本地开发: data/videos.db
             mysql_config: MySQL连接配置，默认使用全局配置
             verbose: 是否输出日志信息，默认True
         """
-        self.db_path = db_path or self.DEFAULT_DB_NAME
+        self.db_path = db_path or self._get_default_db_path()
         self.verbose = verbose
         self.connection = None
         self.use_mysql = use_mysql and MYSQL_AVAILABLE
@@ -169,6 +192,12 @@ class VideoDatabase:
     
     def _init_sqlite(self) -> None:
         """初始化SQLite数据库"""
+        # 确保父目录存在
+        db_dir = os.path.dirname(self.db_path)
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
+            self._log(f"📂 创建数据库目录: {db_dir}")
+        
         self.connection = sqlite3.connect(self.db_path)
         self.connection.row_factory = sqlite3.Row
         
