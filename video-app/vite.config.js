@@ -22,6 +22,8 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
+    // Sourcemaps disabled for production to reduce bundle size
+    // Enable with 'true' or 'hidden' for debugging production issues
     sourcemap: false,
     minify: 'esbuild',
     rollupOptions: {

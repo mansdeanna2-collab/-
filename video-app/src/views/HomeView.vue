@@ -144,7 +144,7 @@ export default {
         this.hasMore = this.videos.length >= this.limit
       } catch (e) {
         this.error = true
-        this.errorMessage = '加载视频失败，请检查网络连接'
+        this.errorMessage = '加载视频失败，请稍后重试'
         console.error('Load videos error:', e)
       } finally {
         this.loading = false
@@ -158,23 +158,31 @@ export default {
       const offset = (this.page - 1) * this.limit
       
       try {
-        const params = {
-          limit: this.limit,
-          offset: offset
-        }
-        
         let result
         if (this.searchKeyword) {
-          result = await videoApi.searchVideos(this.searchKeyword, this.limit)
+          // Note: search and category APIs don't support offset pagination
+          // They return all matching results up to the limit
+          result = await videoApi.searchVideos(this.searchKeyword, this.limit * this.page)
+          const allVideos = result.data || result || []
+          const newVideos = allVideos.slice(offset)
+          this.videos = [...this.videos, ...newVideos]
+          this.hasMore = newVideos.length >= this.limit
         } else if (this.selectedCategory) {
-          result = await videoApi.getVideosByCategory(this.selectedCategory, this.limit)
+          result = await videoApi.getVideosByCategory(this.selectedCategory, this.limit * this.page)
+          const allVideos = result.data || result || []
+          const newVideos = allVideos.slice(offset)
+          this.videos = [...this.videos, ...newVideos]
+          this.hasMore = newVideos.length >= this.limit
         } else {
+          const params = {
+            limit: this.limit,
+            offset: offset
+          }
           result = await videoApi.getVideos(params)
+          const newVideos = result.data || result || []
+          this.videos = [...this.videos, ...newVideos]
+          this.hasMore = newVideos.length >= this.limit
         }
-        
-        const newVideos = result.data || result || []
-        this.videos = [...this.videos, ...newVideos]
-        this.hasMore = newVideos.length >= this.limit
       } catch (e) {
         console.error('Load more error:', e)
       }
