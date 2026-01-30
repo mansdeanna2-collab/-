@@ -69,6 +69,11 @@
 <script>
 import VideoCard from '@/components/VideoCard.vue'
 import { videoApi } from '@/api'
+import { 
+  saveScrollPosition, 
+  restoreScrollPosition, 
+  getCurrentScrollPosition 
+} from '@/utils/scrollManager'
 
 export default {
   name: 'HomeView',
@@ -88,11 +93,17 @@ export default {
       page: 1,
       limit: 20,
       hasMore: true,
-      savedScrollPosition: 0
+      // Flag to track if we should restore scroll position
+      shouldRestoreScroll: false
     }
   },
   watch: {
-    '$route'(to) {
+    '$route'(to, from) {
+      // Mark that we should restore scroll when returning from player
+      if (from.name === 'player' && (to.name === 'home' || to.name === 'category' || to.name === 'search')) {
+        this.shouldRestoreScroll = true
+      }
+      
       if (to.name === 'category') {
         this.selectedCategory = to.params.category || ''
         this.loadVideos()
@@ -107,15 +118,33 @@ export default {
   },
   activated() {
     // Restore scroll position when component is activated (from keep-alive cache)
-    this.$nextTick(() => {
-      if (this.savedScrollPosition > 0) {
-        window.scrollTo(0, this.savedScrollPosition)
-      }
-    })
+    // Use robust restoration with multiple attempts for app environments
+    if (this.shouldRestoreScroll) {
+      this.shouldRestoreScroll = false
+      // Get the route path to use as key
+      const routePath = this.$route.fullPath
+      // Use nextTick and then restore with retry mechanism
+      this.$nextTick(() => {
+        // Small delay to ensure DOM is fully rendered after keep-alive activation
+        restoreScrollPosition(routePath, { initialDelay: 10, maxAttempts: 6 })
+      })
+    }
   },
   deactivated() {
     // Save scroll position when component is deactivated (before navigating away)
-    this.savedScrollPosition = window.scrollY || document.documentElement.scrollTop || 0
+    const routePath = this.$route.fullPath
+    const scrollY = getCurrentScrollPosition()
+    saveScrollPosition(routePath, scrollY)
+  },
+  beforeRouteLeave(to, from, next) {
+    // Also save scroll position when leaving via router navigation
+    // This ensures position is saved even in scenarios where deactivated isn't called first
+    if (to.name === 'player') {
+      const routePath = from.fullPath
+      const scrollY = getCurrentScrollPosition()
+      saveScrollPosition(routePath, scrollY)
+    }
+    next()
   },
   methods: {
     async init() {
