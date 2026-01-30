@@ -2,7 +2,6 @@
   "appId": "com.videoapp.player",
   "appName": "视频播放器",
   "webDir": "dist",
-  "bundledWebRuntime": false,
   "server": {
     "androidScheme": "https"
   },
