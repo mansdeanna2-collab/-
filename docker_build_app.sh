@@ -702,7 +702,7 @@ build_in_docker() {
 FROM node:${NODE_VERSION}-bookworm
 
 # 安装必要的工具
-# Note: Using openjdk-17-jdk as openjdk-21-jdk is not available in Debian Bookworm
+# Using openjdk-17-jdk because openjdk-21-jdk is not available in Debian Bookworm.
 RUN apt-get update && apt-get install -y \\
     openjdk-17-jdk \\
     wget \\
