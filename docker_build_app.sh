@@ -292,13 +292,13 @@ check_nodejs() {
 
 # 安装 Java JDK (Ubuntu/Debian)
 install_java_ubuntu() {
-    print_step "正在安装 OpenJDK 21..."
+    print_step "正在安装 OpenJDK 17..."
     
     sudo apt-get update -y
-    sudo apt-get install -y openjdk-21-jdk
+    sudo apt-get install -y openjdk-17-jdk
     
     # 设置 JAVA_HOME
-    export JAVA_HOME="/usr/lib/jvm/java-21-openjdk-amd64"
+    export JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
     
     # 检查是否已存在 JAVA_HOME 配置，避免重复添加
     if ! grep -q "JAVA_HOME" ~/.bashrc 2>/dev/null; then
@@ -312,12 +312,12 @@ install_java_ubuntu() {
 
 # 安装 Java JDK (macOS)
 install_java_macos() {
-    print_step "正在安装 OpenJDK 21..."
+    print_step "正在安装 OpenJDK 17..."
     
     if command_exists brew; then
-        brew install openjdk@21
+        brew install openjdk@17
         # 创建符号链接
-        sudo ln -sfn /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk-21.jdk 2>/dev/null || true
+        sudo ln -sfn /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk-17.jdk 2>/dev/null || true
         print_success "Java JDK 安装完成"
     else
         print_error "请先安装 Homebrew"
@@ -590,10 +590,10 @@ build_android() {
     
     # 设置 JAVA_HOME (如果未设置)
     if [[ -z "$JAVA_HOME" ]]; then
-        if [[ -d "/usr/lib/jvm/java-21-openjdk-amd64" ]]; then
-            export JAVA_HOME="/usr/lib/jvm/java-21-openjdk-amd64"
-        elif [[ -d "/Library/Java/JavaVirtualMachines/openjdk-21.jdk/Contents/Home" ]]; then
-            export JAVA_HOME="/Library/Java/JavaVirtualMachines/openjdk-21.jdk/Contents/Home"
+        if [[ -d "/usr/lib/jvm/java-17-openjdk-amd64" ]]; then
+            export JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
+        elif [[ -d "/Library/Java/JavaVirtualMachines/openjdk-17.jdk/Contents/Home" ]]; then
+            export JAVA_HOME="/Library/Java/JavaVirtualMachines/openjdk-17.jdk/Contents/Home"
         fi
     fi
     
@@ -702,15 +702,16 @@ build_in_docker() {
 FROM node:${NODE_VERSION}-bookworm
 
 # 安装必要的工具
+# Using openjdk-17-jdk because openjdk-21-jdk is not available in Debian Bookworm.
 RUN apt-get update && apt-get install -y \\
-    openjdk-21-jdk \\
+    openjdk-17-jdk \\
     wget \\
     unzip \\
     curl \\
     && rm -rf /var/lib/apt/lists/*
 
 # 设置 JAVA_HOME
-ENV JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 ENV PATH=\$PATH:\$JAVA_HOME/bin
 
 # 安装 Android SDK
@@ -862,7 +863,7 @@ ${CYAN}输出目录:${NC}
   iOS: $OUTPUT_DIR/ios
 
 ${CYAN}注意事项:${NC}
-  - Android 构建需要 Java JDK 21+ 和 Android SDK
+  - Android 构建需要 Java JDK 17+ 和 Android SDK
   - iOS 构建需要 macOS、Xcode 和 CocoaPods
   - 使用 --docker 选项可以在容器中完成构建，无需本地安装依赖
 
