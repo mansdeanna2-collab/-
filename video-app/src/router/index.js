@@ -35,9 +35,17 @@ const router = createRouter({
   scrollBehavior(to, from, savedPosition) {
     // When returning from player to home/category/search, let the component handle scroll restoration
     // This works together with keep-alive's activated/deactivated hooks in HomeView
+    // Return false to prevent any automatic scroll behavior
     if (from.name === 'player' && (to.name === 'home' || to.name === 'category' || to.name === 'search')) {
-      // Return undefined to prevent automatic scroll, let HomeView's activated hook handle it
-      return
+      // Return false to completely disable scroll behavior, let HomeView handle it
+      return false
+    }
+    
+    // For new routes within home views, also let the component handle it if staying in same view
+    if ((from.name === 'home' || from.name === 'category' || from.name === 'search') && 
+        (to.name === 'home' || to.name === 'category' || to.name === 'search')) {
+      // Scroll to top for new content within home views
+      return { top: 0 }
     }
     
     if (savedPosition) {
