@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '@/views/HomeView.vue'
 import PlayerView from '@/views/PlayerView.vue'
+import { isScrollRestoring } from '@/utils/scrollManager'
 
 const routes = [
   {
@@ -35,16 +36,28 @@ const router = createRouter({
   scrollBehavior(to, from, savedPosition) {
     // When returning from player to home/category/search, let the component handle scroll restoration
     // This works together with keep-alive's activated/deactivated hooks in HomeView
-    // Return false to prevent any automatic scroll behavior
+    // Return a Promise that never resolves to prevent browser default scroll behavior
     if (from.name === 'player' && (to.name === 'home' || to.name === 'category' || to.name === 'search')) {
-      // Return false to completely disable scroll behavior, let HomeView handle it
-      return false
+      // Return a Promise that waits for our custom scroll restoration to complete
+      // This prevents Vue Router from interfering with our scroll position
+      return new Promise((resolve) => {
+        // Check periodically if our restoration is complete
+        const checkRestore = () => {
+          if (!isScrollRestoring()) {
+            // Don't resolve with a scroll position - let our handler keep the position
+            resolve()
+          } else {
+            requestAnimationFrame(checkRestore)
+          }
+        }
+        // Start checking after a short delay to let our restoration begin
+        setTimeout(checkRestore, 50)
+      })
     }
     
-    // For new routes within home views, also let the component handle it if staying in same view
+    // For new routes within home views, scroll to top for new content
     if ((from.name === 'home' || from.name === 'category' || from.name === 'search') && 
         (to.name === 'home' || to.name === 'category' || to.name === 'search')) {
-      // Scroll to top for new content within home views
       return { top: 0 }
     }
     

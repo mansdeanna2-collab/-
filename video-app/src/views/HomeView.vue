@@ -72,7 +72,8 @@ import { videoApi } from '@/api'
 import { 
   saveScrollPosition, 
   restoreScrollPosition, 
-  getCurrentScrollPosition 
+  getCurrentScrollPosition,
+  hasScrollPosition
 } from '@/utils/scrollManager'
 
 export default {
@@ -123,11 +124,22 @@ export default {
       this.shouldRestoreScroll = false
       // Get the route path to use as key
       const routePath = this.$route.fullPath
-      // Use nextTick and then restore with retry mechanism
-      this.$nextTick(() => {
-        // Small delay to ensure DOM is fully rendered after keep-alive activation
-        restoreScrollPosition(routePath, { initialDelay: 10, maxAttempts: 6 })
-      })
+      
+      // Only restore if we have a saved position for this route
+      if (hasScrollPosition(routePath)) {
+        // Use nextTick to ensure DOM is ready, then restore with retry mechanism
+        // The initialDelay and extra attempts help with mobile browsers and WebViews
+        // where rendering may be delayed after keep-alive reactivation
+        this.$nextTick(() => {
+          // Use requestAnimationFrame for better timing with browser paint cycle
+          requestAnimationFrame(() => {
+            restoreScrollPosition(routePath, { 
+              initialDelay: 0, 
+              maxAttempts: 8 
+            })
+          })
+        })
+      }
     }
   },
   deactivated() {
