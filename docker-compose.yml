@@ -1,3 +1,5 @@
+name: video-app
+
 services:
   # API服务
   api:

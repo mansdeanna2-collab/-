@@ -503,7 +503,9 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \\
     compose_file = os.path.join(base_dir, 'docker-compose.yml')
     if not os.path.exists(compose_file):
         print_step("创建docker-compose.yml...")
-        compose_content = '''services:
+        compose_content = '''name: video-app
+
+services:
   # API服务
   api:
     build:
@@ -596,10 +598,11 @@ ios
 
 def get_compose_command() -> str:
     """获取正确的docker compose命令"""
+    # 使用 -p video-app 明确指定项目名称，避免目录名称问题
     code, _, _ = run_command("docker compose version", capture=True, check=False)
     if code == 0:
-        return "docker compose"
-    return "docker-compose"
+        return "docker compose -p video-app"
+    return "docker-compose -p video-app"
 
 
 def wait_for_service_healthy(compose_cmd: str, service: str, timeout: int = 60) -> bool:
