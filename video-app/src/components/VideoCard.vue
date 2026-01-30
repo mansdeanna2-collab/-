@@ -3,12 +3,15 @@
     <div class="thumbnail">
       <img 
         v-if="video.video_image" 
-        :src="formatImageUrl(video.video_image)" 
+        ref="imgElement"
         :alt="video.video_title"
         @error="handleImageError"
         loading="lazy"
       />
       <div v-else class="placeholder">
+        <span>🎬</span>
+      </div>
+      <div class="placeholder" ref="placeholder" style="display: none;">
         <span>🎬</span>
       </div>
       <div class="play-icon">
@@ -37,7 +40,7 @@
 </template>
 
 <script>
-import { formatImageUrl } from '@/utils/imageUtils'
+import { formatImageUrl, loadImageWithBase64Detection } from '@/utils/imageUtils'
 
 export default {
   name: 'VideoCard',
@@ -48,19 +51,46 @@ export default {
     }
   },
   emits: ['click'],
+  data() {
+    return {
+      lastLoadedUrl: null
+    }
+  },
+  watch: {
+    'video.video_image': {
+      immediate: false,
+      handler(newUrl) {
+        if (newUrl && newUrl !== this.lastLoadedUrl) {
+          this.loadImage()
+        }
+      }
+    }
+  },
+  mounted() {
+    this.loadImage()
+  },
   methods: {
     handleClick() {
       this.$emit('click', this.video)
     },
     handleImageError(e) {
       e.target.style.display = 'none'
-      e.target.parentElement.querySelector('.placeholder')?.style.setProperty('display', 'flex')
+      if (this.$refs.placeholder) {
+        this.$refs.placeholder.style.display = 'flex'
+      }
     },
     formatPlayCount(count) {
       if (count >= 10000) {
         return (count / 10000).toFixed(1) + '万'
       }
       return count.toString()
+    },
+    async loadImage() {
+      const url = this.video?.video_image
+      if (!url || !this.$refs.imgElement) return
+      
+      this.lastLoadedUrl = url
+      await loadImageWithBase64Detection(this.$refs.imgElement, url)
     },
     // Use shared utility for formatting image URLs
     formatImageUrl

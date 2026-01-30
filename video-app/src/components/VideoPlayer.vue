@@ -10,7 +10,7 @@
       <video
         ref="videoElement"
         :src="safeEncodeURI(currentSrc)"
-        :poster="formatImageUrl(poster)"
+        :poster="computedPoster"
         controls
         playsinline
         webkit-playsinline
@@ -97,7 +97,7 @@
 </template>
 
 <script>
-import { formatImageUrl, safeEncodeURI } from '@/utils/imageUtils'
+import { formatImageUrl, safeEncodeURI, loadImageWithBase64Detection } from '@/utils/imageUtils'
 
 export default {
   name: 'VideoPlayer',
@@ -127,6 +127,8 @@ export default {
       currentSrc: '',
       playbackRate: '1',
       isFullscreen: false,
+      // Computed poster URL after base64 detection
+      computedPoster: '',
       // Gesture support
       touchStartX: 0,
       touchStartY: 0,
@@ -153,6 +155,12 @@ export default {
       immediate: true,
       handler(newSrc) {
         this.parseSource(newSrc)
+      }
+    },
+    poster: {
+      immediate: true,
+      handler(newPoster) {
+        this.loadPoster(newPoster)
       }
     }
   },
@@ -553,6 +561,19 @@ export default {
     setPlaybackRate(rate) {
       this.playbackRate = String(rate)
       this.changePlaybackRate()
+    },
+    
+    // Load poster image with base64 detection
+    async loadPoster(posterUrl) {
+      if (!posterUrl) {
+        this.computedPoster = ''
+        return
+      }
+      
+      // Create a temporary image element to use with loadImageWithBase64Detection
+      const tempImg = new Image()
+      await loadImageWithBase64Detection(tempImg, posterUrl)
+      this.computedPoster = tempImg.src || ''
     },
     
     // Use shared utilities for image and URL formatting

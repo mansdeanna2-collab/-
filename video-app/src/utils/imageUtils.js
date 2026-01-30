@@ -128,3 +128,107 @@ export function safeEncodeURI(url) {
     return url
   }
 }
+
+// Maximum size for reading text response (5MB)
+const MAX_TEXT_SIZE = 5 * 1024 * 1024
+
+/**
+ * Check if a URL is valid (http or https)
+ * @param {string} url - URL to check
+ * @returns {boolean}
+ */
+function isValidUrl(url) {
+  if (!url || typeof url !== 'string') return false
+  return url.startsWith('http://') || url.startsWith('https://')
+}
+
+/**
+ * Load image with base64 detection and conversion
+ * Fetches the URL and checks if the response is raw base64 data.
+ * If so, converts it to a proper data URL.
+ * @param {HTMLImageElement} imgElement - The image element to load into
+ * @param {string} url - The image URL to load
+ */
+export async function loadImageWithBase64Detection(imgElement, url) {
+  // If it's already a data URL, use it directly
+  if (url && url.startsWith('data:image/')) {
+    imgElement.src = url
+    return
+  }
+
+  // First try formatImageUrl for local base64 content
+  const formattedUrl = formatImageUrl(url)
+  if (formattedUrl && formattedUrl.startsWith('data:')) {
+    imgElement.src = formattedUrl
+    return
+  }
+
+  // Validate URL before fetching
+  if (!isValidUrl(url)) {
+    imgElement.src = formattedUrl || ''
+    return
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      mode: 'cors',
+      credentials: 'omit'
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    const contentType = response.headers.get('content-type') || ''
+
+    // If the response is an image binary, use the URL directly
+    if (contentType.startsWith('image/')) {
+      imgElement.src = url
+      return
+    }
+
+    // Check content length to prevent memory issues
+    const contentLength = parseInt(response.headers.get('content-length') || '0', 10)
+    if (contentLength > MAX_TEXT_SIZE) {
+      // Too large for base64 text, try as URL directly
+      imgElement.src = url
+      return
+    }
+
+    // If content-type is text or unknown, check if it's raw base64
+    const text = await response.text()
+
+    // Additional size check after reading
+    if (text.length > MAX_TEXT_SIZE) {
+      imgElement.src = url
+      return
+    }
+
+    // Check for known base64 signatures
+    const trimmedText = text.trim()
+    let detectedMimeType = null
+    for (const [signature, mimeType] of Object.entries(BASE64_SIGNATURES)) {
+      if (trimmedText.startsWith(signature)) {
+        detectedMimeType = mimeType
+        break
+      }
+    }
+
+    if (detectedMimeType) {
+      // Clean and convert raw base64 to data URL
+      const cleanedBase64 = cleanBase64Content(trimmedText)
+      if (cleanedBase64) {
+        imgElement.src = `data:${detectedMimeType};base64,${cleanedBase64}`
+        return
+      }
+    }
+
+    // Not recognized as base64, try using URL directly
+    imgElement.src = url
+  } catch (error) {
+    // On fetch error (CORS, network, etc.), fall back to direct URL loading
+    // The browser might be able to load it even if fetch fails
+    imgElement.src = url
+  }
+}
