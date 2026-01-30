@@ -56,9 +56,11 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # 配置CORS - 允许跨域请求
+# 在部署的app或H5中，origin可能来自多种来源（Capacitor、WebView、不同域名等）
+# 因此需要允许所有来源以确保图片和API请求能正常加载
 CORS(app, resources={
     r"/api/*": {
-        "origins": ["http://localhost:3000", "http://127.0.0.1:3000", "capacitor://localhost", "ionic://localhost"],
+        "origins": "*",
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"]
     }
