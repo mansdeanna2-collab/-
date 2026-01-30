@@ -732,7 +732,10 @@ WORKDIR /app
 # 复制项目文件
 COPY video-app/package*.json ./video-app/
 
-# 安装依赖
+# 复制 patches 目录 (patch-package postinstall 脚本需要)
+COPY video-app/patches ./video-app/patches
+
+# 安装依赖 (postinstall 会运行 patch-package 应用补丁)
 RUN cd video-app && npm ci
 
 # 复制其余文件
