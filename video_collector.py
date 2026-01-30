@@ -38,6 +38,11 @@ DEFAULT_DELAY = 1.0
 class VideoCollector:
     """视频采集器类"""
     
+    # 域名替换配置
+    DOMAIN_REPLACEMENTS = {
+        'vip.sq03.shop': 'd34zpx35a2d8cd.cloudfront.net'
+    }
+    
     def __init__(self, base_url: str = DEFAULT_API_URL, timeout: int = DEFAULT_TIMEOUT):
         """
         初始化采集器
@@ -56,6 +61,67 @@ class VideoCollector:
         })
         self.collected_data: List[Dict] = []
         self.collection_params: Dict[str, Any] = {}  # 记录采集参数
+        self.skipped_count: int = 0  # 记录因无效图片被跳过的视频数量
+    
+    def _is_valid_video(self, video: Dict) -> bool:
+        """
+        检查视频是否有效（图片URL不能以.txt结尾）
+        
+        Args:
+            video: 视频数据字典
+            
+        Returns:
+            True如果视频有效，False如果应该跳过
+        """
+        vod_pic = video.get('vod_pic', '')
+        if vod_pic and vod_pic.lower().endswith('.txt'):
+            return False
+        return True
+    
+    def _process_play_url(self, play_url: str) -> str:
+        """
+        处理播放URL，替换指定域名
+        
+        Args:
+            play_url: 原始播放URL
+            
+        Returns:
+            处理后的播放URL
+        """
+        if not play_url:
+            return play_url
+        
+        for old_domain, new_domain in self.DOMAIN_REPLACEMENTS.items():
+            play_url = play_url.replace(old_domain, new_domain)
+        
+        return play_url
+    
+    def _process_video(self, video: Dict) -> Optional[Dict]:
+        """
+        处理单个视频数据：过滤无效视频并替换播放URL中的域名
+        
+        Args:
+            video: 原始视频数据
+            
+        Returns:
+            处理后的视频数据副本，如果视频无效则返回None
+        """
+        # 检查视频是否有效
+        if not self._is_valid_video(video):
+            self.skipped_count += 1
+            vod_name = video.get('vod_name', '未知')
+            vod_pic = video.get('vod_pic', '')
+            print(f"⏭️ 跳过无效视频: {vod_name} (图片链接无效: {vod_pic})")
+            return None
+        
+        # 创建视频数据副本以避免修改原始数据
+        processed_video = video.copy()
+        
+        # 处理播放URL
+        if 'vod_play_url' in processed_video:
+            processed_video['vod_play_url'] = self._process_play_url(processed_video['vod_play_url'])
+        
+        return processed_video
         
     def get_categories(self) -> List[Dict]:
         """
@@ -114,15 +180,23 @@ class VideoCollector:
             
             total = data.get('total', 0)
             page_count = data.get('pagecount', 1)
-            video_list = data.get('list', [])
+            raw_video_list = data.get('list', [])
             
-            print(f"✅ 第 {page}/{page_count} 页，获取到 {len(video_list)} 个视频 (总计: {total})")
+            # 过滤并处理视频列表
+            processed_list = []
+            for video in raw_video_list:
+                processed_video = self._process_video(video)
+                if processed_video is not None:
+                    processed_list.append(processed_video)
+            
+            skipped_this_page = len(raw_video_list) - len(processed_list)
+            print(f"✅ 第 {page}/{page_count} 页，获取到 {len(raw_video_list)} 个视频，有效 {len(processed_list)} 个 (跳过 {skipped_this_page} 个无效) (总计: {total})")
             
             return {
                 'total': total,
                 'page': page,
                 'page_count': page_count,
-                'list': video_list
+                'list': processed_list
             }
         except requests.exceptions.RequestException as e:
             print(f"❌ 请求失败: {e}")
@@ -141,7 +215,7 @@ class VideoCollector:
             vod_id: 视频ID
             
         Returns:
-            视频详情字典
+            视频详情字典，如果视频无效则返回None
         """
         params = {
             'ac': 'detail',
@@ -155,7 +229,8 @@ class VideoCollector:
             
             video_list = data.get('list', [])
             if video_list:
-                return video_list[0]
+                # 处理并验证视频
+                return self._process_video(video_list[0])
             return None
         except Exception as e:
             print(f"❌ 获取视频详情失败 (ID: {vod_id}): {e}")
@@ -201,6 +276,7 @@ class VideoCollector:
             print(f"⏰ 时间范围: {hours}小时内更新")
         
         self.collected_data = []
+        self.skipped_count = 0  # 重置跳过计数
         current_page = start_page
         
         # 首次请求获取总页数
@@ -343,12 +419,16 @@ class VideoCollector:
         """打印采集数据摘要"""
         if not self.collected_data:
             print("⚠️ 没有采集到数据")
+            if self.skipped_count > 0:
+                print(f"⏭️ 共跳过 {self.skipped_count} 个无效视频（图片链接以.txt结尾）")
             return
         
         print("\n" + "="*60)
         print("📊 采集数据摘要")
         print("="*60)
-        print(f"总数量: {len(self.collected_data)}")
+        print(f"有效视频数量: {len(self.collected_data)}")
+        if self.skipped_count > 0:
+            print(f"跳过无效视频: {self.skipped_count} 个（图片链接以.txt结尾）")
         
         # 统计分类
         categories = {}
