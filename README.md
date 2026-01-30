@@ -127,7 +127,56 @@ docker compose logs -f
 docker compose down
 ```
 
-## 打包为移动端 App
+## 🚀 全自动应用打包脚本 (推荐)
+
+使用 `docker_build_app.sh` 脚本可以全自动检测、安装依赖并打包应用。
+
+### 基本使用
+
+```bash
+# 给脚本添加执行权限
+chmod +x docker_build_app.sh
+
+# 检查所有依赖
+./docker_build_app.sh --check
+
+# 构建 Web 应用
+./docker_build_app.sh --web
+
+# 构建 Android APK
+./docker_build_app.sh --android
+
+# 构建 iOS 应用 (仅 macOS)
+./docker_build_app.sh --ios
+
+# 构建所有平台
+./docker_build_app.sh --all
+
+# 在 Docker 容器中构建 (推荐，无需本地安装依赖)
+./docker_build_app.sh --docker --android
+
+# 清理构建产物
+./docker_build_app.sh --clean
+```
+
+### 脚本功能
+
+- ✅ 自动检测并安装 Docker
+- ✅ 自动检测并安装 Node.js 和 npm
+- ✅ 自动检测并安装 Java JDK 17
+- ✅ 自动检测并安装 Android SDK
+- ✅ 支持在 Docker 容器中完成构建
+- ✅ 支持 Ubuntu 和 macOS
+- ✅ 支持 Web、Android、iOS 多平台打包
+
+### 输出目录
+
+构建完成后，文件位于 `build-output/` 目录:
+- `build-output/web/` - H5 Web 应用
+- `build-output/android/video-app-debug.apk` - Android APK
+- `build-output/ios/` - iOS 项目
+
+## 手动打包移动端 App
 
 ### Android
 
