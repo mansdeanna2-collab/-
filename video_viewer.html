@@ -748,11 +748,44 @@
             return `data:${mimeType};base64,${cleanBase64}`;
         }
 
+        // Check if content is a valid image source (URL or base64)
+        function isValidImageSource(content) {
+            if (!content || typeof content !== 'string') return false;
+            // Check if it's already a data URL
+            if (content.startsWith('data:image/')) return true;
+            // Check if it's a valid URL
+            if (isValidUrl(content)) return true;
+            // Check if it's base64 image data
+            if (detectBase64Image(content)) return true;
+            return false;
+        }
+
+        // Format image source - convert base64 to data URL if needed
+        function formatImageSource(content) {
+            if (!content || typeof content !== 'string') return '';
+            // Already a data URL
+            if (content.startsWith('data:image/')) return content;
+            // Valid URL - return as-is
+            if (isValidUrl(content)) return content;
+            // Check for base64 and convert
+            const mimeType = detectBase64Image(content);
+            if (mimeType) {
+                return toDataUrl(content, mimeType);
+            }
+            return content;
+        }
+
         // Maximum size for reading text response (5MB)
         const MAX_TEXT_SIZE = 5 * 1024 * 1024;
 
         // Load image with base64 detection and conversion
         async function loadImageWithBase64Detection(imgElement, url) {
+            // If it's already a data URL, use it directly
+            if (url && url.startsWith('data:image/')) {
+                imgElement.src = url;
+                return;
+            }
+            
             // Validate URL before fetching
             if (!isValidUrl(url)) {
                 imgElement.src = '';
@@ -982,8 +1015,8 @@
                 ${filteredVideos.map((video, index) => `
                     <div class="video-card" data-index="${index}" role="button" tabindex="0" aria-label="播放 ${escapeHtml(video.vod_name || '未知标题')}">
                         <div class="video-thumbnail">
-                            ${video.vod_pic && isValidUrl(video.vod_pic) ? 
-                                `<img data-src="${escapeHtml(video.vod_pic)}" alt="${escapeHtml(video.vod_name || '')}" onerror="handleImageError(this)" loading="lazy">` : 
+                            ${video.vod_pic && isValidImageSource(video.vod_pic) ? 
+                                `<img data-src="${escapeHtml(formatImageSource(video.vod_pic))}" alt="${escapeHtml(video.vod_name || '')}" onerror="handleImageError(this)" loading="lazy">` : 
                                 '<div class="placeholder">🎬</div>'}
                             <div class="play-icon"></div>
                         </div>
