@@ -3,7 +3,7 @@
 """
 视频数据库模块 (Video Database Module)
 ======================================
-基于SQLite的视频信息存储系统
+基于MySQL的视频信息存储系统
 
 数据表结构:
 - video_id: 视频ID (主键)
@@ -14,7 +14,14 @@
 - play_count: 播放数
 - upload_time: 上传时间
 - video_duration: 视频时长
-- video_price: 视频价格
+- video_coins: 视频金币
+
+MySQL连接配置通过环境变量设置:
+- MYSQL_HOST: 数据库主机
+- MYSQL_PORT: 数据库端口
+- MYSQL_DATABASE: 数据库名
+- MYSQL_USER: 用户名
+- MYSQL_PASSWORD: 密码
 
 使用方法:
     from video_database import VideoDatabase
@@ -29,15 +36,16 @@
         'play_count': 1000,
         'upload_time': '2026-01-30 10:00:00',
         'video_duration': '01:30:00',
-        'video_price': 0.00
+        'video_coins': 0
     })
 
 作者: Auto-generated
 日期: 2026-01-30
 """
 
-import sqlite3
 import os
+import re
+import json
 import logging
 from datetime import datetime
 from typing import Optional, List, Dict, Any, Union
@@ -45,38 +53,128 @@ from typing import Optional, List, Dict, Any, Union
 # 配置日志
 logger = logging.getLogger(__name__)
 
+# MySQL连接配置 - 从环境变量获取
+MYSQL_CONFIG = {
+    'host': os.environ.get('MYSQL_HOST', '1Panel-mysql-yd9W'),
+    'port': int(os.environ.get('MYSQL_PORT', '3306')),
+    'database': os.environ.get('MYSQL_DATABASE', 'psspsj'),
+    'user': os.environ.get('MYSQL_USER', 'root'),
+    'password': os.environ.get('MYSQL_PASSWORD', 'mysql_cxamBx'),
+    'charset': 'utf8mb4'
+}
+
+# 尝试导入MySQL连接器
+try:
+    import pymysql
+    MYSQL_AVAILABLE = True
+except ImportError:
+    MYSQL_AVAILABLE = False
+    logger.warning("pymysql 未安装，将使用SQLite作为备用数据库")
+
+# 备用SQLite导入
+import sqlite3
+
 
 class VideoDatabase:
     """
     视频数据库管理类
     
+    支持MySQL和SQLite两种数据库后端。
     注意：建议使用上下文管理器 (with语句) 来确保数据库连接正确关闭，
     或手动调用 close() 方法。
     """
     
     DEFAULT_DB_NAME = "videos.db"
     
-    def __init__(self, db_path: Optional[str] = None, verbose: bool = True):
+    def __init__(self, use_mysql: bool = True, db_path: Optional[str] = None, 
+                 mysql_config: Optional[Dict[str, Any]] = None, verbose: bool = True):
         """
         初始化数据库连接
         
         Args:
-            db_path: 数据库文件路径，默认为当前目录下的 videos.db
+            use_mysql: 是否使用MySQL，默认True。如果pymysql未安装，自动降级到SQLite
+            db_path: SQLite数据库文件路径，默认为当前目录下的 videos.db
+            mysql_config: MySQL连接配置，默认使用全局配置
             verbose: 是否输出日志信息，默认True
         """
         self.db_path = db_path or self.DEFAULT_DB_NAME
         self.verbose = verbose
-        self.connection: Optional[sqlite3.Connection] = None
+        self.connection = None
+        self.use_mysql = use_mysql and MYSQL_AVAILABLE
+        self.mysql_config = mysql_config or MYSQL_CONFIG
         self._init_database()
     
     def _init_database(self) -> None:
         """初始化数据库，创建表结构"""
+        if self.use_mysql:
+            self._init_mysql()
+        else:
+            self._init_sqlite()
+    
+    def _init_mysql(self) -> None:
+        """初始化MySQL数据库"""
+        try:
+            self.connection = pymysql.connect(
+                host=self.mysql_config['host'],
+                port=self.mysql_config['port'],
+                user=self.mysql_config['user'],
+                password=self.mysql_config['password'],
+                database=self.mysql_config['database'],
+                charset=self.mysql_config.get('charset', 'utf8mb4'),
+                cursorclass=pymysql.cursors.DictCursor
+            )
+            
+            cursor = self.connection.cursor()
+            
+            # 创建视频表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS videos (
+                    video_id INT PRIMARY KEY,
+                    video_url TEXT NOT NULL,
+                    video_image TEXT,
+                    video_title VARCHAR(500) NOT NULL,
+                    video_category VARCHAR(100),
+                    play_count INT DEFAULT 0,
+                    upload_time VARCHAR(50),
+                    video_duration VARCHAR(50),
+                    video_coins INT DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+            ''')
+            
+            # 创建索引以提高查询效率
+            try:
+                cursor.execute('CREATE INDEX idx_video_category ON videos(video_category)')
+            except pymysql.err.OperationalError:
+                pass  # 索引已存在
+            
+            try:
+                cursor.execute('CREATE INDEX idx_video_upload_time ON videos(upload_time)')
+            except pymysql.err.OperationalError:
+                pass
+            
+            try:
+                cursor.execute('CREATE INDEX idx_video_play_count ON videos(play_count)')
+            except pymysql.err.OperationalError:
+                pass
+            
+            self.connection.commit()
+            self._log(f"✅ MySQL数据库初始化完成: {self.mysql_config['database']}")
+        except Exception as e:
+            logger.error(f"MySQL连接失败: {e}")
+            self._log(f"⚠️ MySQL连接失败，降级到SQLite: {e}")
+            self.use_mysql = False
+            self._init_sqlite()
+    
+    def _init_sqlite(self) -> None:
+        """初始化SQLite数据库"""
         self.connection = sqlite3.connect(self.db_path)
-        self.connection.row_factory = sqlite3.Row  # 支持通过列名访问
+        self.connection.row_factory = sqlite3.Row
         
         cursor = self.connection.cursor()
         
-        # 创建视频表
+        # 创建视频表 (使用video_coins代替video_price)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS videos (
                 video_id INTEGER PRIMARY KEY,
@@ -87,7 +185,7 @@ class VideoDatabase:
                 play_count INTEGER DEFAULT 0,
                 upload_time TEXT,
                 video_duration TEXT,
-                video_price REAL DEFAULT 0.0,
+                video_coins INTEGER DEFAULT 0,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
@@ -132,7 +230,7 @@ class VideoDatabase:
                 - play_count: 播放数
                 - upload_time: 上传时间
                 - video_duration: 视频时长
-                - video_price: 视频价格
+                - video_coins: 视频金币
                 
         Returns:
             插入成功返回True，失败返回False
@@ -145,28 +243,48 @@ class VideoDatabase:
         
         try:
             cursor = self.connection.cursor()
-            # 使用 INSERT OR REPLACE 实现更新或插入功能
-            # 注意：这会替换整行数据，包括 created_at 时间戳
-            cursor.execute('''
-                INSERT OR REPLACE INTO videos 
-                (video_id, video_url, video_image, video_title, video_category, 
-                 play_count, upload_time, video_duration, video_price, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                video_data.get('video_id'),
-                video_data.get('video_url'),
-                video_data.get('video_image', ''),
-                video_data.get('video_title'),
-                video_data.get('video_category', ''),
-                video_data.get('play_count', 0),
-                video_data.get('upload_time', ''),
-                video_data.get('video_duration', ''),
-                video_data.get('video_price', 0.0),
-                datetime.now().isoformat()
-            ))
+            
+            if self.use_mysql:
+                # MySQL使用 REPLACE INTO
+                cursor.execute('''
+                    REPLACE INTO videos 
+                    (video_id, video_url, video_image, video_title, video_category, 
+                     play_count, upload_time, video_duration, video_coins)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ''', (
+                    video_data.get('video_id'),
+                    video_data.get('video_url'),
+                    video_data.get('video_image', ''),
+                    video_data.get('video_title'),
+                    video_data.get('video_category', ''),
+                    video_data.get('play_count', 0),
+                    video_data.get('upload_time', ''),
+                    video_data.get('video_duration', ''),
+                    video_data.get('video_coins', 0)
+                ))
+            else:
+                # SQLite使用 INSERT OR REPLACE
+                cursor.execute('''
+                    INSERT OR REPLACE INTO videos 
+                    (video_id, video_url, video_image, video_title, video_category, 
+                     play_count, upload_time, video_duration, video_coins, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    video_data.get('video_id'),
+                    video_data.get('video_url'),
+                    video_data.get('video_image', ''),
+                    video_data.get('video_title'),
+                    video_data.get('video_category', ''),
+                    video_data.get('play_count', 0),
+                    video_data.get('upload_time', ''),
+                    video_data.get('video_duration', ''),
+                    video_data.get('video_coins', 0),
+                    datetime.now().isoformat()
+                ))
+            
             self.connection.commit()
             return True
-        except sqlite3.Error as e:
+        except Exception as e:
             logger.error(f"插入视频失败: {e}")
             self._log(f"❌ 插入视频失败: {e}")
             return False
@@ -200,11 +318,12 @@ class VideoDatabase:
             视频数据字典，如果不存在返回None
         """
         cursor = self.connection.cursor()
-        cursor.execute('SELECT * FROM videos WHERE video_id = ?', (video_id,))
+        placeholder = '%s' if self.use_mysql else '?'
+        cursor.execute(f'SELECT * FROM videos WHERE video_id = {placeholder}', (video_id,))
         row = cursor.fetchone()
         
         if row:
-            return dict(row)
+            return dict(row) if isinstance(row, dict) else dict(row)
         return None
     
     def get_all_videos(self, limit: Optional[int] = None, 
@@ -220,17 +339,18 @@ class VideoDatabase:
             视频列表
         """
         cursor = self.connection.cursor()
+        placeholder = '%s' if self.use_mysql else '?'
         
         if limit:
             cursor.execute(
-                'SELECT * FROM videos ORDER BY upload_time DESC LIMIT ? OFFSET ?',
+                f'SELECT * FROM videos ORDER BY upload_time DESC LIMIT {placeholder} OFFSET {placeholder}',
                 (limit, offset)
             )
         else:
             cursor.execute('SELECT * FROM videos ORDER BY upload_time DESC')
         
         rows = cursor.fetchall()
-        return [dict(row) for row in rows]
+        return [dict(row) if isinstance(row, dict) else dict(row) for row in rows]
     
     def get_videos_by_category(self, category: str, 
                                limit: Optional[int] = None) -> List[Dict[str, Any]]:
@@ -245,20 +365,21 @@ class VideoDatabase:
             视频列表
         """
         cursor = self.connection.cursor()
+        placeholder = '%s' if self.use_mysql else '?'
         
         if limit:
             cursor.execute(
-                'SELECT * FROM videos WHERE video_category = ? ORDER BY upload_time DESC LIMIT ?',
+                f'SELECT * FROM videos WHERE video_category = {placeholder} ORDER BY upload_time DESC LIMIT {placeholder}',
                 (category, limit)
             )
         else:
             cursor.execute(
-                'SELECT * FROM videos WHERE video_category = ? ORDER BY upload_time DESC',
+                f'SELECT * FROM videos WHERE video_category = {placeholder} ORDER BY upload_time DESC',
                 (category,)
             )
         
         rows = cursor.fetchall()
-        return [dict(row) for row in rows]
+        return [dict(row) if isinstance(row, dict) else dict(row) for row in rows]
     
     def search_videos(self, keyword: str, 
                       limit: Optional[int] = None) -> List[Dict[str, Any]]:
@@ -274,20 +395,21 @@ class VideoDatabase:
         """
         cursor = self.connection.cursor()
         search_pattern = f"%{keyword}%"
+        placeholder = '%s' if self.use_mysql else '?'
         
         if limit:
             cursor.execute(
-                'SELECT * FROM videos WHERE video_title LIKE ? ORDER BY play_count DESC LIMIT ?',
+                f'SELECT * FROM videos WHERE video_title LIKE {placeholder} ORDER BY play_count DESC LIMIT {placeholder}',
                 (search_pattern, limit)
             )
         else:
             cursor.execute(
-                'SELECT * FROM videos WHERE video_title LIKE ? ORDER BY play_count DESC',
+                f'SELECT * FROM videos WHERE video_title LIKE {placeholder} ORDER BY play_count DESC',
                 (search_pattern,)
             )
         
         rows = cursor.fetchall()
-        return [dict(row) for row in rows]
+        return [dict(row) if isinstance(row, dict) else dict(row) for row in rows]
     
     def get_top_videos(self, limit: int = 10) -> List[Dict[str, Any]]:
         """
@@ -300,12 +422,13 @@ class VideoDatabase:
             视频列表
         """
         cursor = self.connection.cursor()
+        placeholder = '%s' if self.use_mysql else '?'
         cursor.execute(
-            'SELECT * FROM videos ORDER BY play_count DESC LIMIT ?',
+            f'SELECT * FROM videos ORDER BY play_count DESC LIMIT {placeholder}',
             (limit,)
         )
         rows = cursor.fetchall()
-        return [dict(row) for row in rows]
+        return [dict(row) if isinstance(row, dict) else dict(row) for row in rows]
     
     def update_video(self, video_id: int, 
                      updates: Dict[str, Any]) -> bool:
@@ -326,31 +449,34 @@ class VideoDatabase:
         # 注意：字段名来自 allowed_fields 白名单，防止SQL注入
         allowed_fields = [
             'video_url', 'video_image', 'video_title', 'video_category',
-            'play_count', 'upload_time', 'video_duration', 'video_price'
+            'play_count', 'upload_time', 'video_duration', 'video_coins'
         ]
         
+        placeholder = '%s' if self.use_mysql else '?'
         set_clauses = []
         values = []
         
         for field, value in updates.items():
             if field in allowed_fields:
-                set_clauses.append(f"{field} = ?")
+                set_clauses.append(f"{field} = {placeholder}")
                 values.append(value)
         
         if not set_clauses:
             return False
         
-        set_clauses.append("updated_at = ?")
-        values.append(datetime.now().isoformat())
+        if not self.use_mysql:
+            set_clauses.append(f"updated_at = {placeholder}")
+            values.append(datetime.now().isoformat())
+        
         values.append(video_id)
         
         try:
             cursor = self.connection.cursor()
-            sql = f"UPDATE videos SET {', '.join(set_clauses)} WHERE video_id = ?"
+            sql = f"UPDATE videos SET {', '.join(set_clauses)} WHERE video_id = {placeholder}"
             cursor.execute(sql, values)
             self.connection.commit()
             return cursor.rowcount > 0
-        except sqlite3.Error as e:
+        except Exception as e:
             logger.error(f"更新视频失败: {e}")
             self._log(f"❌ 更新视频失败: {e}")
             return False
@@ -369,13 +495,21 @@ class VideoDatabase:
         """
         try:
             cursor = self.connection.cursor()
-            cursor.execute(
-                'UPDATE videos SET play_count = play_count + ?, updated_at = ? WHERE video_id = ?',
-                (increment, datetime.now().isoformat(), video_id)
-            )
+            placeholder = '%s' if self.use_mysql else '?'
+            
+            if self.use_mysql:
+                cursor.execute(
+                    f'UPDATE videos SET play_count = play_count + {placeholder} WHERE video_id = {placeholder}',
+                    (increment, video_id)
+                )
+            else:
+                cursor.execute(
+                    f'UPDATE videos SET play_count = play_count + {placeholder}, updated_at = {placeholder} WHERE video_id = {placeholder}',
+                    (increment, datetime.now().isoformat(), video_id)
+                )
             self.connection.commit()
             return cursor.rowcount > 0
-        except sqlite3.Error as e:
+        except Exception as e:
             logger.error(f"更新播放数失败: {e}")
             self._log(f"❌ 更新播放数失败: {e}")
             return False
@@ -392,10 +526,11 @@ class VideoDatabase:
         """
         try:
             cursor = self.connection.cursor()
-            cursor.execute('DELETE FROM videos WHERE video_id = ?', (video_id,))
+            placeholder = '%s' if self.use_mysql else '?'
+            cursor.execute(f'DELETE FROM videos WHERE video_id = {placeholder}', (video_id,))
             self.connection.commit()
             return cursor.rowcount > 0
-        except sqlite3.Error as e:
+        except Exception as e:
             logger.error(f"删除视频失败: {e}")
             self._log(f"❌ 删除视频失败: {e}")
             return False
@@ -415,7 +550,7 @@ class VideoDatabase:
             ORDER BY video_count DESC
         ''')
         rows = cursor.fetchall()
-        return [dict(row) for row in rows]
+        return [dict(row) if isinstance(row, dict) else dict(row) for row in rows]
     
     def get_statistics(self) -> Dict[str, Any]:
         """
@@ -427,16 +562,19 @@ class VideoDatabase:
         cursor = self.connection.cursor()
         
         # 总视频数
-        cursor.execute('SELECT COUNT(*) FROM videos')
-        total_videos = cursor.fetchone()[0]
+        cursor.execute('SELECT COUNT(*) as cnt FROM videos')
+        row = cursor.fetchone()
+        total_videos = row['cnt'] if isinstance(row, dict) else row[0]
         
         # 总播放数
-        cursor.execute('SELECT SUM(play_count) FROM videos')
-        total_plays = cursor.fetchone()[0] or 0
+        cursor.execute('SELECT COALESCE(SUM(play_count), 0) as total FROM videos')
+        row = cursor.fetchone()
+        total_plays = row['total'] if isinstance(row, dict) else row[0]
         
         # 分类数
-        cursor.execute('SELECT COUNT(DISTINCT video_category) FROM videos')
-        category_count = cursor.fetchone()[0]
+        cursor.execute('SELECT COUNT(DISTINCT video_category) as cnt FROM videos')
+        row = cursor.fetchone()
+        category_count = row['cnt'] if isinstance(row, dict) else row[0]
         
         # 平均播放数
         avg_plays = total_plays / total_videos if total_videos > 0 else 0
@@ -504,7 +642,7 @@ def import_from_collector(collector_data: List[Dict[str, Any]],
             'play_count': video.get('vod_hits', 0),
             'upload_time': video.get('vod_time', ''),
             'video_duration': video.get('vod_duration', video.get('vod_remarks', '')),
-            'video_price': 0.0  # 默认价格为0
+            'video_coins': 0  # 默认金币为0
         }
         videos_to_insert.append(db_video)
     
@@ -514,13 +652,144 @@ def import_from_collector(collector_data: List[Dict[str, Any]],
     return db.insert_videos(videos_to_insert)
 
 
+def parse_spjs_file(file_path: str) -> List[Dict[str, Any]]:
+    """
+    解析sp.js文件，提取视频数据
+    
+    sp.js文件格式通常为JavaScript变量赋值，包含视频数组
+    例如: var videoList = [{...}, {...}];
+    
+    Args:
+        file_path: sp.js文件路径
+        
+    Returns:
+        视频数据列表
+    """
+    if not os.path.exists(file_path):
+        logger.error(f"文件不存在: {file_path}")
+        print(f"❌ 文件不存在: {file_path}")
+        return []
+    
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # 尝试提取JSON数组
+        # 方法1: 查找 var xxx = [...] 或 let xxx = [...] 或 const xxx = [...]
+        array_match = re.search(r'(?:var|let|const)\s+\w+\s*=\s*(\[[\s\S]*?\]);?\s*$', content, re.MULTILINE)
+        if array_match:
+            json_str = array_match.group(1)
+            # 清理JavaScript特有的语法
+            json_str = re.sub(r',\s*([}\]])', r'\1', json_str)  # 移除尾随逗号
+            videos = json.loads(json_str)
+            print(f"✅ 从sp.js解析到 {len(videos)} 个视频 (变量赋值格式)")
+            return videos
+        
+        # 方法2: 直接尝试作为JSON解析
+        try:
+            videos = json.loads(content)
+            if isinstance(videos, list):
+                print(f"✅ 从sp.js解析到 {len(videos)} 个视频 (JSON数组格式)")
+                return videos
+            elif isinstance(videos, dict) and 'data' in videos:
+                videos = videos['data']
+                print(f"✅ 从sp.js解析到 {len(videos)} 个视频 (JSON对象格式)")
+                return videos if isinstance(videos, list) else []
+        except json.JSONDecodeError:
+            pass
+        
+        # 方法3: 查找JSON数组部分
+        bracket_match = re.search(r'\[[\s\S]*\]', content)
+        if bracket_match:
+            json_str = bracket_match.group(0)
+            json_str = re.sub(r',\s*([}\]])', r'\1', json_str)
+            videos = json.loads(json_str)
+            print(f"✅ 从sp.js解析到 {len(videos)} 个视频 (提取JSON数组)")
+            return videos
+        
+        print("❌ 无法解析sp.js文件格式")
+        return []
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON解析失败: {e}")
+        print(f"❌ JSON解析失败: {e}")
+        return []
+    except Exception as e:
+        logger.error(f"读取文件失败: {e}")
+        print(f"❌ 读取文件失败: {e}")
+        return []
+
+
+def import_from_spjs(file_path: str, db: VideoDatabase) -> int:
+    """
+    从sp.js文件导入视频数据到数据库
+    
+    Args:
+        file_path: sp.js文件路径
+        db: 数据库实例
+        
+    Returns:
+        成功导入的数量
+    """
+    videos = parse_spjs_file(file_path)
+    
+    if not videos:
+        print("⚠️ 没有找到可导入的视频数据")
+        return 0
+    
+    videos_to_insert = []
+    skipped_count = 0
+    
+    def get_first_value(*keys, default=None, source=None):
+        """从字典中获取第一个存在的键值"""
+        for key in keys:
+            val = source.get(key)
+            if val is not None:
+                return val
+        return default
+    
+    for video in videos:
+        # 尝试多种字段名映射
+        video_id = get_first_value('video_id', 'vod_id', 'id', source=video)
+        video_title = get_first_value('video_title', 'vod_name', 'title', 'name', source=video)
+        video_url = get_first_value('video_url', 'vod_play_url', 'url', 'play_url', default='', source=video)
+        
+        if not video_id or not video_title:
+            skipped_count += 1
+            continue
+        
+        db_video = {
+            'video_id': video_id,
+            'video_url': video_url,
+            'video_image': get_first_value('video_image', 'vod_pic', 'pic', 'thumb', default='', source=video),
+            'video_title': video_title,
+            'video_category': get_first_value('video_category', 'type_name', 'category', default='', source=video),
+            'play_count': get_first_value('play_count', 'vod_hits', 'hits', default=0, source=video),
+            'upload_time': get_first_value('upload_time', 'vod_time', 'time', default='', source=video),
+            'video_duration': get_first_value('video_duration', 'vod_duration', 'duration', 'vod_remarks', default='', source=video),
+            'video_coins': get_first_value('video_coins', 'coins', 'gold', default=0, source=video)
+        }
+        videos_to_insert.append(db_video)
+    
+    if skipped_count > 0:
+        print(f"⏭️ 跳过 {skipped_count} 个无效视频记录")
+    
+    return db.insert_videos(videos_to_insert)
+
+
 # 命令行测试
 if __name__ == '__main__':
     import argparse
     
-    parser = argparse.ArgumentParser(description='视频数据库管理工具')
+    parser = argparse.ArgumentParser(description='视频数据库管理工具 - 支持MySQL和SQLite')
+    parser.add_argument('--mysql', action='store_true', default=True,
+                        help='使用MySQL数据库 (默认)')
+    parser.add_argument('--sqlite', action='store_true',
+                        help='使用SQLite数据库')
     parser.add_argument('--db', type=str, default='videos.db', 
-                        help='数据库文件路径')
+                        help='SQLite数据库文件路径')
+    parser.add_argument('--import-spjs', type=str, default=None, metavar='FILE',
+                        help='从sp.js文件导入视频数据')
     parser.add_argument('--stats', action='store_true', 
                         help='显示统计信息')
     parser.add_argument('--categories', action='store_true', 
@@ -534,7 +803,27 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     
-    with VideoDatabase(args.db) as db:
+    # 确定使用MySQL还是SQLite
+    use_mysql = not args.sqlite
+    
+    print("\n" + "="*60)
+    print("🎬 视频数据库管理工具 v2.0")
+    print("="*60)
+    
+    if use_mysql and MYSQL_AVAILABLE:
+        print(f"📡 数据库类型: MySQL")
+        print(f"   主机: {MYSQL_CONFIG['host']}:{MYSQL_CONFIG['port']}")
+        print(f"   数据库: {MYSQL_CONFIG['database']}")
+    else:
+        print(f"📡 数据库类型: SQLite ({args.db})")
+    
+    with VideoDatabase(use_mysql=use_mysql, db_path=args.db) as db:
+        # 导入sp.js文件
+        if args.import_spjs:
+            print(f"\n📥 正在从 {args.import_spjs} 导入视频数据...")
+            count = import_from_spjs(args.import_spjs, db)
+            print(f"✅ 成功导入 {count} 个视频到数据库")
+        
         if args.stats:
             stats = db.get_statistics()
             print("\n📊 数据库统计信息:")
