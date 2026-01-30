@@ -97,6 +97,8 @@
 </template>
 
 <script>
+import { formatImageUrl, safeEncodeURI } from '@/utils/imageUtils'
+
 export default {
   name: 'VideoPlayer',
   props: {
@@ -141,7 +143,9 @@ export default {
       retryCount: 0,
       maxRetries: 3,
       // Slow loading threshold in milliseconds (5 seconds)
-      slowLoadingThreshold: 5000
+      slowLoadingThreshold: 5000,
+      // Track source for retry validation (prevent retrying wrong source)
+      retrySourceUrl: ''
     }
   },
   watch: {
@@ -275,6 +279,7 @@ export default {
       // Determine specific error message based on video element error code
       const video = this.$refs.videoElement
       let errorMsg = '视频加载失败，请稍后重试'
+      let isNetworkError = false
       
       if (video && video.error) {
         switch (video.error.code) {
@@ -283,6 +288,7 @@ export default {
             break
           case MediaError.MEDIA_ERR_NETWORK:
             errorMsg = '网络错误，视频加载失败'
+            isNetworkError = true
             break
           case MediaError.MEDIA_ERR_DECODE:
             errorMsg = '视频格式不支持或解码错误'
@@ -293,14 +299,24 @@ export default {
         }
       }
       
+      // Store the source URL for retry validation
+      this.retrySourceUrl = this.currentSrc
+      
       // Auto-retry for network errors if retries remaining
-      if (this.retryCount < this.maxRetries && video && video.error && 
-          video.error.code === MediaError.MEDIA_ERR_NETWORK) {
+      if (this.retryCount < this.maxRetries && isNetworkError) {
         this.retryCount++
+        // Show error state briefly so user knows retry is happening
+        this.error = true
+        this.errorMessage = `${errorMsg}，正在重试...`
+        
         // Retry with exponential backoff (1s, 2s, 4s)
         const delay = Math.pow(2, this.retryCount - 1) * 1000
+        const srcAtError = this.currentSrc
+        
         setTimeout(() => {
-          if (!this.error) return // Skip if error was cleared
+          // Skip if source changed (user loaded different video)
+          if (this.currentSrc !== srcAtError) return
+          
           this.loading = true
           this.error = false
           this.startSlowLoadingDetection()
@@ -324,8 +340,11 @@ export default {
     
     onWaiting() {
       this.buffering = true
-      // Start slow buffering detection
-      this.startSlowLoadingDetection()
+      // Only start slow loading detection if not already running
+      // (avoid multiple overlapping timers)
+      if (!this.slowLoadingTimeout) {
+        this.startSlowLoadingDetection()
+      }
     },
     
     onCanPlay() {
@@ -350,7 +369,8 @@ export default {
     // Video progress event - data is being downloaded
     onProgress() {
       // Reset slow loading warning when progress is being made
-      if (this.slowLoadingWarning && !this.buffering) {
+      // regardless of buffering state (indicates data is flowing)
+      if (this.slowLoadingWarning) {
         this.slowLoadingWarning = false
       }
     },
@@ -373,10 +393,12 @@ export default {
       }
     },
     
+    // Manual retry - reset counter for fresh start
     retry() {
       this.error = false
       this.loading = true
-      this.retryCount++
+      // Reset retry count for manual retry (gives user full set of auto-retries again)
+      this.retryCount = 0
       this.startSlowLoadingDetection()
       if (this.$refs.videoElement) {
         this.$refs.videoElement.load()
@@ -533,111 +555,9 @@ export default {
       this.changePlaybackRate()
     },
     
-    // Format image URL - handles base64 content, data URLs, and regular URLs
-    // Enhanced implementation with better validation and edge case handling
-    formatImageUrl(url) {
-      if (!url) return ''
-      
-      // Trim whitespace for consistent detection
-      const trimmed = url.trim()
-      
-      // If already a data URL, validate and return
-      if (trimmed.startsWith('data:')) {
-        // Validate data URL format: data:[<mediatype>][;base64],<data>
-        if (/^data:image\/[a-z+]+;base64,[A-Za-z0-9+/]+=*$/.test(trimmed.replace(/\s/g, ''))) {
-          return trimmed.replace(/\s/g, '') // Clean any whitespace
-        }
-        return trimmed
-      }
-      
-      // If already a valid URL (http/https), encode and return
-      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-        try {
-          // Check if URL is already encoded
-          const decoded = decodeURI(trimmed)
-          if (decoded !== trimmed) {
-            return trimmed // Already encoded
-          }
-          return encodeURI(trimmed)
-        } catch (e) {
-          // If decodeURI fails, URL might be malformed, return as-is
-          return trimmed
-        }
-      }
-      
-      // Base64 image signatures (matching video_viewer.html)
-      const BASE64_SIGNATURES = {
-        '/9j/': 'image/jpeg',      // JPEG
-        'iVBOR': 'image/png',      // PNG  
-        'R0lGO': 'image/gif',      // GIF
-        'UklGR': 'image/webp',     // WebP (RIFF header)
-        'Qk': 'image/bmp'          // BMP
-      }
-      
-      // Check for known base64 image headers
-      for (const [signature, mimeType] of Object.entries(BASE64_SIGNATURES)) {
-        if (trimmed.startsWith(signature)) {
-          // Clean base64: remove whitespace (newlines, spaces, tabs)
-          const cleanBase64 = this.cleanBase64Content(trimmed)
-          if (cleanBase64) {
-            return `data:${mimeType};base64,${cleanBase64}`
-          }
-        }
-      }
-      
-      // For other potential base64 content: must be long and contain only base64 characters
-      // This is a conservative check to avoid false positives
-      const cleanContent = this.cleanBase64Content(trimmed)
-      if (cleanContent && cleanContent.length > 100) {
-        // Default to PNG for unknown base64 content
-        return 'data:image/png;base64,' + cleanContent
-      }
-      
-      // Otherwise, treat as regular URL and encode
-      try {
-        return encodeURI(trimmed)
-      } catch (e) {
-        return trimmed
-      }
-    },
-    
-    // Clean and validate base64 content
-    // Returns cleaned base64 string or null if invalid
-    cleanBase64Content(content) {
-      if (!content || typeof content !== 'string') return null
-      
-      // Remove all whitespace (newlines, spaces, tabs, carriage returns)
-      const cleaned = content.replace(/[\s\r\n]+/g, '')
-      
-      // Validate base64 characters and proper padding
-      // Base64 alphabet: A-Z, a-z, 0-9, +, /
-      // Padding: = (0-2 at end)
-      if (!/^[A-Za-z0-9+/]+={0,2}$/.test(cleaned)) {
-        return null
-      }
-      
-      // Check that length is valid for base64 (must be multiple of 4 with padding)
-      // Or without strict padding for some encoders
-      if (cleaned.length < 4) {
-        return null
-      }
-      
-      return cleaned
-    },
-    
-    // Safely encode URL for video sources (doesn't need base64 handling for video URLs)
-    safeEncodeURI(url) {
-      if (!url) return ''
-      try {
-        const decoded = decodeURI(url)
-        if (decoded !== url) {
-          return url // Already encoded
-        }
-        return encodeURI(url)
-      } catch (e) {
-        return url
-      }
-    }
+    // Use shared utilities for image and URL formatting
+    formatImageUrl,
+    safeEncodeURI
   }
 }
 </script>
