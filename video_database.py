@@ -382,13 +382,15 @@ class VideoDatabase:
         return [dict(row) if isinstance(row, dict) else dict(row) for row in rows]
     
     def get_videos_by_category(self, category: str, 
-                               limit: Optional[int] = None) -> List[Dict[str, Any]]:
+                               limit: Optional[int] = None,
+                               offset: int = 0) -> List[Dict[str, Any]]:
         """
         按分类获取视频
         
         Args:
             category: 视频分类
             limit: 限制返回数量
+            offset: 偏移量
             
         Returns:
             视频列表
@@ -398,8 +400,8 @@ class VideoDatabase:
         
         if limit:
             cursor.execute(
-                f'SELECT * FROM videos WHERE video_category = {placeholder} ORDER BY upload_time DESC LIMIT {placeholder}',
-                (category, limit)
+                f'SELECT * FROM videos WHERE video_category = {placeholder} ORDER BY upload_time DESC LIMIT {placeholder} OFFSET {placeholder}',
+                (category, limit, offset)
             )
         else:
             cursor.execute(
@@ -411,13 +413,15 @@ class VideoDatabase:
         return [dict(row) if isinstance(row, dict) else dict(row) for row in rows]
     
     def search_videos(self, keyword: str, 
-                      limit: Optional[int] = None) -> List[Dict[str, Any]]:
+                      limit: Optional[int] = None,
+                      offset: int = 0) -> List[Dict[str, Any]]:
         """
         搜索视频标题
         
         Args:
             keyword: 搜索关键词
             limit: 限制返回数量
+            offset: 偏移量
             
         Returns:
             匹配的视频列表
@@ -428,8 +432,8 @@ class VideoDatabase:
         
         if limit:
             cursor.execute(
-                f'SELECT * FROM videos WHERE video_title LIKE {placeholder} ORDER BY play_count DESC LIMIT {placeholder}',
-                (search_pattern, limit)
+                f'SELECT * FROM videos WHERE video_title LIKE {placeholder} ORDER BY play_count DESC LIMIT {placeholder} OFFSET {placeholder}',
+                (search_pattern, limit, offset)
             )
         else:
             cursor.execute(

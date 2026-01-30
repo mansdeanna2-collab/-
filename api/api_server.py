@@ -151,16 +151,18 @@ def search_videos():
     
     Query参数:
         keyword: 搜索关键词 (必需)
-        limit: 返回数量 (默认20)
+        limit: 返回数量 (默认20, 最大100)
+        offset: 偏移量 (默认0)
     """
     keyword = request.args.get('keyword', '').strip()
     if not keyword:
         return api_response(message="请提供搜索关键词", code=400)
     
     limit = min(int(request.args.get('limit', 20)), 100)
+    offset = max(int(request.args.get('offset', 0)), 0)
     
     with get_db() as db:
-        videos = db.search_videos(keyword, limit=limit)
+        videos = db.search_videos(keyword, limit=limit, offset=offset)
     
     return api_response(data=videos)
 
@@ -173,16 +175,18 @@ def get_videos_by_category():
     
     Query参数:
         category: 分类名称 (必需)
-        limit: 返回数量 (默认20)
+        limit: 返回数量 (默认20, 最大100)
+        offset: 偏移量 (默认0)
     """
     category = request.args.get('category', '').strip()
     if not category:
         return api_response(message="请提供分类名称", code=400)
     
     limit = min(int(request.args.get('limit', 20)), 100)
+    offset = max(int(request.args.get('offset', 0)), 0)
     
     with get_db() as db:
-        videos = db.get_videos_by_category(category, limit=limit)
+        videos = db.get_videos_by_category(category, limit=limit, offset=offset)
     
     return api_response(data=videos)
 

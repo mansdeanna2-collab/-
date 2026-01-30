@@ -160,17 +160,15 @@ export default {
       try {
         let result
         if (this.searchKeyword) {
-          // Note: search and category APIs don't support offset pagination
-          // They return all matching results up to the limit
-          result = await videoApi.searchVideos(this.searchKeyword, this.limit * this.page)
-          const allVideos = result.data || result || []
-          const newVideos = allVideos.slice(offset)
+          // Use offset pagination for search
+          result = await videoApi.searchVideos(this.searchKeyword, this.limit, offset)
+          const newVideos = result.data || result || []
           this.videos = [...this.videos, ...newVideos]
           this.hasMore = newVideos.length >= this.limit
         } else if (this.selectedCategory) {
-          result = await videoApi.getVideosByCategory(this.selectedCategory, this.limit * this.page)
-          const allVideos = result.data || result || []
-          const newVideos = allVideos.slice(offset)
+          // Use offset pagination for category
+          result = await videoApi.getVideosByCategory(this.selectedCategory, this.limit, offset)
+          const newVideos = result.data || result || []
           this.videos = [...this.videos, ...newVideos]
           this.hasMore = newVideos.length >= this.limit
         } else {

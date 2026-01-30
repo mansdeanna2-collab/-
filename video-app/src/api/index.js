@@ -43,13 +43,13 @@ export const videoApi = {
   },
 
   // Search videos by keyword
-  searchVideos(keyword, limit = 20) {
-    return api.get('/videos/search', { params: { keyword, limit } })
+  searchVideos(keyword, limit = 20, offset = 0) {
+    return api.get('/videos/search', { params: { keyword, limit, offset } })
   },
 
   // Get videos by category
-  getVideosByCategory(category, limit = 20) {
-    return api.get('/videos/category', { params: { category, limit } })
+  getVideosByCategory(category, limit = 20, offset = 0) {
+    return api.get('/videos/category', { params: { category, limit, offset } })
   },
 
   // Get all categories
