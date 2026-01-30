@@ -66,7 +66,7 @@
         <!-- Fullscreen button -->
         <button class="control-btn fullscreen-btn" @click="toggleFullscreen" :title="isFullscreen ? '退出全屏' : '全屏'">
           <span v-if="!isFullscreen">⛶</span>
-          <span v-else>⛶</span>
+          <span v-else>⮌</span>
         </button>
       </div>
     </div>
@@ -330,6 +330,15 @@ export default {
     },
     
     onDoubleClick(e) {
+      // On desktop, double-click toggles fullscreen
+      // (Different from mobile touch where we use zones for seek)
+      if (!('ontouchstart' in window)) {
+        // Desktop: toggle fullscreen
+        this.toggleFullscreen()
+        return
+      }
+      
+      // Mobile: use zone-based behavior
       const container = this.$refs.playerContainer
       const rect = container.getBoundingClientRect()
       const x = e.clientX - rect.left
