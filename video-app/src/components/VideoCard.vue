@@ -61,27 +61,33 @@ export default {
       return count.toString()
     },
     // Format image URL - handles base64 content, data URLs, and regular URLs
-    // Matches the robust implementation from video_viewer.html
+    // Enhanced implementation with better validation and edge case handling
     formatImageUrl(url) {
       if (!url) return ''
       
       // Trim whitespace for consistent detection
       const trimmed = url.trim()
       
-      // If already a data URL, return as-is
+      // If already a data URL, validate and return
       if (trimmed.startsWith('data:')) {
+        // Validate data URL format: data:[<mediatype>][;base64],<data>
+        if (/^data:image\/[a-z+]+;base64,[A-Za-z0-9+/]+=*$/.test(trimmed.replace(/\s/g, ''))) {
+          return trimmed.replace(/\s/g, '') // Clean any whitespace
+        }
         return trimmed
       }
       
       // If already a valid URL (http/https), encode and return
       if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
         try {
+          // Check if URL is already encoded
           const decoded = decodeURI(trimmed)
           if (decoded !== trimmed) {
             return trimmed // Already encoded
           }
           return encodeURI(trimmed)
         } catch (e) {
+          // If decodeURI fails, URL might be malformed, return as-is
           return trimmed
         }
       }
@@ -98,16 +104,18 @@ export default {
       // Check for known base64 image headers
       for (const [signature, mimeType] of Object.entries(BASE64_SIGNATURES)) {
         if (trimmed.startsWith(signature)) {
-          // Remove any whitespace from base64 content
-          const cleanBase64 = trimmed.replace(/\s/g, '')
-          return `data:${mimeType};base64,${cleanBase64}`
+          // Clean base64: remove whitespace (newlines, spaces, tabs)
+          const cleanBase64 = this.cleanBase64Content(trimmed)
+          if (cleanBase64) {
+            return `data:${mimeType};base64,${cleanBase64}`
+          }
         }
       }
       
       // For other potential base64 content: must be long and contain only base64 characters
       // This is a conservative check to avoid false positives
-      const cleanContent = trimmed.replace(/\s/g, '')
-      if (cleanContent.length > 100 && /^[A-Za-z0-9+/]+=*$/.test(cleanContent)) {
+      const cleanContent = this.cleanBase64Content(trimmed)
+      if (cleanContent && cleanContent.length > 100) {
         // Default to PNG for unknown base64 content
         return 'data:image/png;base64,' + cleanContent
       }
@@ -118,6 +126,30 @@ export default {
       } catch (e) {
         return trimmed
       }
+    },
+    
+    // Clean and validate base64 content
+    // Returns cleaned base64 string or null if invalid
+    cleanBase64Content(content) {
+      if (!content || typeof content !== 'string') return null
+      
+      // Remove all whitespace (newlines, spaces, tabs, carriage returns)
+      const cleaned = content.replace(/[\s\r\n]+/g, '')
+      
+      // Validate base64 characters and proper padding
+      // Base64 alphabet: A-Z, a-z, 0-9, +, /
+      // Padding: = (0-2 at end)
+      if (!/^[A-Za-z0-9+/]+={0,2}$/.test(cleaned)) {
+        return null
+      }
+      
+      // Check that length is valid for base64 (must be multiple of 4 with padding)
+      // Or without strict padding for some encoders
+      if (cleaned.length < 4) {
+        return null
+      }
+      
+      return cleaned
     }
   }
 }

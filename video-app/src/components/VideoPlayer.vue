@@ -16,6 +16,7 @@
         webkit-playsinline
         x5-video-player-type="h5"
         x5-video-player-fullscreen="true"
+        preload="metadata"
         @play="onPlay"
         @pause="onPause"
         @ended="onEnded"
@@ -24,20 +25,27 @@
         @timeupdate="onTimeUpdate"
         @waiting="onWaiting"
         @canplay="onCanPlay"
+        @loadstart="onLoadStart"
+        @progress="onProgress"
+        @stalled="onStalled"
       >
         您的浏览器不支持视频播放
       </video>
       
-      <!-- Loading overlay -->
+      <!-- Loading overlay with slow loading warning -->
       <div v-if="loading || buffering" class="loading-overlay">
         <div class="loading-spinner"></div>
         <p>{{ buffering ? '缓冲中...' : '加载中...' }}</p>
+        <p v-if="slowLoadingWarning" class="slow-loading-warning">
+          加载较慢，请耐心等待或尝试刷新
+        </p>
       </div>
       
       <!-- Error overlay -->
       <div v-if="error" class="error-overlay">
         <div class="error-icon">⚠️</div>
         <p>{{ errorMessage }}</p>
+        <p v-if="retryCount > 0" class="retry-info">已重试 {{ retryCount }} 次</p>
         <button class="btn btn-primary" @click="retry">重试</button>
       </div>
       
@@ -125,7 +133,15 @@ export default {
       gestureText: '',
       gestureTimeout: null,
       // Track if initial autoplay has been triggered
-      hasAutoplayTriggered: false
+      hasAutoplayTriggered: false,
+      // Video loading performance tracking
+      loadStartTime: null,
+      slowLoadingWarning: false,
+      slowLoadingTimeout: null,
+      retryCount: 0,
+      maxRetries: 3,
+      // Slow loading threshold in milliseconds (5 seconds)
+      slowLoadingThreshold: 5000
     }
   },
   watch: {
@@ -147,8 +163,37 @@ export default {
     if (this.gestureTimeout) {
       clearTimeout(this.gestureTimeout)
     }
+    // Clear slow loading timeout
+    this.clearSlowLoadingTimeout()
   },
   methods: {
+    // Clear slow loading detection timeout
+    clearSlowLoadingTimeout() {
+      if (this.slowLoadingTimeout) {
+        clearTimeout(this.slowLoadingTimeout)
+        this.slowLoadingTimeout = null
+      }
+    },
+    
+    // Start slow loading detection
+    startSlowLoadingDetection() {
+      this.loadStartTime = Date.now()
+      this.slowLoadingWarning = false
+      this.clearSlowLoadingTimeout()
+      
+      this.slowLoadingTimeout = setTimeout(() => {
+        if (this.loading || this.buffering) {
+          this.slowLoadingWarning = true
+        }
+      }, this.slowLoadingThreshold)
+    },
+    
+    // Stop slow loading detection and reset state
+    stopSlowLoadingDetection() {
+      this.clearSlowLoadingTimeout()
+      this.slowLoadingWarning = false
+    },
+    
     parseSource(src) {
       // Reset autoplay flag when source changes
       this.hasAutoplayTriggered = false
@@ -188,6 +233,10 @@ export default {
         this.error = false
         // Reset autoplay flag for new episode
         this.hasAutoplayTriggered = false
+        // Reset retry count for new episode
+        this.retryCount = 0
+        // Start slow loading detection
+        this.startSlowLoadingDetection()
         
         this.$nextTick(() => {
           if (this.$refs.videoElement) {
@@ -201,6 +250,8 @@ export default {
     onPlay() {
       this.loading = false
       this.buffering = false
+      // Stop slow loading detection on successful play
+      this.stopSlowLoadingDetection()
       this.$emit('play')
     },
     
@@ -219,27 +270,96 @@ export default {
     onError(e) {
       this.loading = false
       this.buffering = false
+      this.stopSlowLoadingDetection()
+      
+      // Determine specific error message based on video element error code
+      const video = this.$refs.videoElement
+      let errorMsg = '视频加载失败，请稍后重试'
+      
+      if (video && video.error) {
+        switch (video.error.code) {
+          case MediaError.MEDIA_ERR_ABORTED:
+            errorMsg = '视频加载被中断'
+            break
+          case MediaError.MEDIA_ERR_NETWORK:
+            errorMsg = '网络错误，视频加载失败'
+            break
+          case MediaError.MEDIA_ERR_DECODE:
+            errorMsg = '视频格式不支持或解码错误'
+            break
+          case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+            errorMsg = '不支持的视频格式或无效链接'
+            break
+        }
+      }
+      
+      // Auto-retry for network errors if retries remaining
+      if (this.retryCount < this.maxRetries && video && video.error && 
+          video.error.code === MediaError.MEDIA_ERR_NETWORK) {
+        this.retryCount++
+        // Retry with exponential backoff (1s, 2s, 4s)
+        const delay = Math.pow(2, this.retryCount - 1) * 1000
+        setTimeout(() => {
+          if (!this.error) return // Skip if error was cleared
+          this.loading = true
+          this.error = false
+          this.startSlowLoadingDetection()
+          if (this.$refs.videoElement) {
+            this.$refs.videoElement.load()
+          }
+        }, delay)
+        return
+      }
+      
       this.error = true
-      this.errorMessage = '视频加载失败，请稍后重试'
+      this.errorMessage = errorMsg
       this.$emit('error', e)
     },
     
     onLoadedMetadata() {
       this.loading = false
+      // Stop slow loading detection - metadata loaded successfully
+      this.stopSlowLoadingDetection()
     },
     
     onWaiting() {
       this.buffering = true
+      // Start slow buffering detection
+      this.startSlowLoadingDetection()
     },
     
     onCanPlay() {
       this.buffering = false
+      // Stop slow loading detection - video is ready to play
+      this.stopSlowLoadingDetection()
       // Auto-play when video is ready and autoplay is enabled (only trigger once per video load)
       if (this.autoplay && !this.hasAutoplayTriggered && this.$refs.videoElement && this.$refs.videoElement.paused) {
         this.hasAutoplayTriggered = true
         this.$refs.videoElement.play().catch(err => {
           console.log('Auto-play blocked:', err)
         })
+      }
+    },
+    
+    // Video load start event - start tracking load time
+    onLoadStart() {
+      this.loading = true
+      this.startSlowLoadingDetection()
+    },
+    
+    // Video progress event - data is being downloaded
+    onProgress() {
+      // Reset slow loading warning when progress is being made
+      if (this.slowLoadingWarning && !this.buffering) {
+        this.slowLoadingWarning = false
+      }
+    },
+    
+    // Video stalled event - browser is trying to fetch but no data is coming
+    onStalled() {
+      // Only show warning if we're still loading or buffering
+      if (this.loading || this.buffering) {
+        this.slowLoadingWarning = true
       }
     },
     
@@ -256,6 +376,8 @@ export default {
     retry() {
       this.error = false
       this.loading = true
+      this.retryCount++
+      this.startSlowLoadingDetection()
       if (this.$refs.videoElement) {
         this.$refs.videoElement.load()
       }
@@ -412,27 +534,33 @@ export default {
     },
     
     // Format image URL - handles base64 content, data URLs, and regular URLs
-    // Matches the robust implementation from video_viewer.html
+    // Enhanced implementation with better validation and edge case handling
     formatImageUrl(url) {
       if (!url) return ''
       
       // Trim whitespace for consistent detection
       const trimmed = url.trim()
       
-      // If already a data URL, return as-is
+      // If already a data URL, validate and return
       if (trimmed.startsWith('data:')) {
+        // Validate data URL format: data:[<mediatype>][;base64],<data>
+        if (/^data:image\/[a-z+]+;base64,[A-Za-z0-9+/]+=*$/.test(trimmed.replace(/\s/g, ''))) {
+          return trimmed.replace(/\s/g, '') // Clean any whitespace
+        }
         return trimmed
       }
       
       // If already a valid URL (http/https), encode and return
       if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
         try {
+          // Check if URL is already encoded
           const decoded = decodeURI(trimmed)
           if (decoded !== trimmed) {
             return trimmed // Already encoded
           }
           return encodeURI(trimmed)
         } catch (e) {
+          // If decodeURI fails, URL might be malformed, return as-is
           return trimmed
         }
       }
@@ -449,16 +577,18 @@ export default {
       // Check for known base64 image headers
       for (const [signature, mimeType] of Object.entries(BASE64_SIGNATURES)) {
         if (trimmed.startsWith(signature)) {
-          // Remove any whitespace from base64 content
-          const cleanBase64 = trimmed.replace(/\s/g, '')
-          return `data:${mimeType};base64,${cleanBase64}`
+          // Clean base64: remove whitespace (newlines, spaces, tabs)
+          const cleanBase64 = this.cleanBase64Content(trimmed)
+          if (cleanBase64) {
+            return `data:${mimeType};base64,${cleanBase64}`
+          }
         }
       }
       
       // For other potential base64 content: must be long and contain only base64 characters
       // This is a conservative check to avoid false positives
-      const cleanContent = trimmed.replace(/\s/g, '')
-      if (cleanContent.length > 100 && /^[A-Za-z0-9+/]+=*$/.test(cleanContent)) {
+      const cleanContent = this.cleanBase64Content(trimmed)
+      if (cleanContent && cleanContent.length > 100) {
         // Default to PNG for unknown base64 content
         return 'data:image/png;base64,' + cleanContent
       }
@@ -469,6 +599,30 @@ export default {
       } catch (e) {
         return trimmed
       }
+    },
+    
+    // Clean and validate base64 content
+    // Returns cleaned base64 string or null if invalid
+    cleanBase64Content(content) {
+      if (!content || typeof content !== 'string') return null
+      
+      // Remove all whitespace (newlines, spaces, tabs, carriage returns)
+      const cleaned = content.replace(/[\s\r\n]+/g, '')
+      
+      // Validate base64 characters and proper padding
+      // Base64 alphabet: A-Z, a-z, 0-9, +, /
+      // Padding: = (0-2 at end)
+      if (!/^[A-Za-z0-9+/]+={0,2}$/.test(cleaned)) {
+        return null
+      }
+      
+      // Check that length is valid for base64 (must be multiple of 4 with padding)
+      // Or without strict padding for some encoders
+      if (cleaned.length < 4) {
+        return null
+      }
+      
+      return cleaned
     },
     
     // Safely encode URL for video sources (doesn't need base64 handling for video URLs)
@@ -555,6 +709,22 @@ export default {
 .error-overlay p {
   margin-top: 15px;
   color: #888;
+}
+
+.slow-loading-warning {
+  color: #ffa500;
+  font-size: 0.85em;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+.retry-info {
+  color: #aaa;
+  font-size: 0.8em;
 }
 
 .error-icon {
