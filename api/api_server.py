@@ -29,7 +29,7 @@ import sys
 import logging
 from functools import wraps
 from contextlib import contextmanager
-from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, TypeVar
+from typing import Any, Callable, cast, Dict, Generator, List, Optional, Tuple, TypeVar
 
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
@@ -126,7 +126,7 @@ def handle_errors(f: F) -> F:
         except Exception as e:
             logger.error(f"服务器错误 (Server error): {e}", exc_info=True)
             return api_response(message="服务器内部错误", code=500)
-    return decorated_function  # type: ignore[return-value]
+    return cast(F, decorated_function)
 
 
 # ==================== API路由 (API Routes) ====================

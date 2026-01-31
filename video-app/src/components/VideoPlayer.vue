@@ -473,8 +473,6 @@ export default {
         if (video && video.duration) {
           // Calculate seek time: 100px = 10 seconds
           const seekTime = (deltaX / 100) * 10
-          // Calculate new time for display feedback (not used here but calculated for reference)
-          const _newTime = Math.max(0, Math.min(video.duration, this.touchStartTime + seekTime))
           const diff = seekTime >= 0 ? `+${Math.round(seekTime)}s` : `${Math.round(seekTime)}s`
           this.showGestureText(diff)
         }
