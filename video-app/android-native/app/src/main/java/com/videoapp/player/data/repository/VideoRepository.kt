@@ -1,5 +1,6 @@
 package com.videoapp.player.data.repository
 
+import android.util.Log
 import com.videoapp.player.data.api.ApiClient
 import com.videoapp.player.data.model.*
 import kotlinx.coroutines.CancellationException
@@ -14,6 +15,10 @@ import java.net.UnknownHostException
  */
 class VideoRepository {
     
+    companion object {
+        private const val TAG = "VideoRepository"
+    }
+    
     private val apiService = ApiClient.videoApiService
     
     /**
@@ -25,7 +30,10 @@ class VideoRepository {
             is UnknownHostException -> "无法连接到服务器，请检查网络"
             is SocketTimeoutException -> "连接超时，请稍后重试"
             is ConnectException -> "连接被拒绝，请稍后重试"
-            else -> e.message ?: "请求失败"
+            else -> {
+                Log.e(TAG, "API error: ${e.message}", e)
+                e.message ?: "请求失败"
+            }
         }
     }
     
@@ -40,8 +48,11 @@ class VideoRepository {
                     val videos = response.body()?.data ?: emptyList()
                     Result.success(videos)
                 } else {
+                    Log.w(TAG, "getVideos failed with code: ${response.code()}")
                     Result.failure(Exception("服务器错误: ${response.code()}"))
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.failure(Exception(getErrorMessage(e)))
             }
@@ -60,8 +71,11 @@ class VideoRepository {
                         Result.success(it)
                     } ?: Result.failure(Exception("视频不存在"))
                 } else {
+                    Log.w(TAG, "getVideo failed with code: ${response.code()}")
                     Result.failure(Exception("服务器错误: ${response.code()}"))
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.failure(Exception(getErrorMessage(e)))
             }
@@ -79,8 +93,11 @@ class VideoRepository {
                     val videos = response.body()?.data ?: emptyList()
                     Result.success(videos)
                 } else {
+                    Log.w(TAG, "searchVideos failed with code: ${response.code()}")
                     Result.failure(Exception("服务器错误: ${response.code()}"))
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.failure(Exception(getErrorMessage(e)))
             }
@@ -98,8 +115,11 @@ class VideoRepository {
                     val videos = response.body()?.data ?: emptyList()
                     Result.success(videos)
                 } else {
+                    Log.w(TAG, "getVideosByCategory failed with code: ${response.code()}")
                     Result.failure(Exception("服务器错误: ${response.code()}"))
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.failure(Exception(getErrorMessage(e)))
             }
@@ -117,8 +137,11 @@ class VideoRepository {
                     val videos = response.body()?.data ?: emptyList()
                     Result.success(videos)
                 } else {
+                    Log.w(TAG, "getTopVideos failed with code: ${response.code()}")
                     Result.failure(Exception("服务器错误: ${response.code()}"))
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.failure(Exception(getErrorMessage(e)))
             }
@@ -137,8 +160,11 @@ class VideoRepository {
                 } else {
                     Result.failure(Exception("服务器错误: ${response.code()}"))
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 // Silently fail for play count updates
+                Log.d(TAG, "updatePlayCount failed: ${e.message}")
                 Result.failure(e)
             }
         }
@@ -155,8 +181,11 @@ class VideoRepository {
                     val categories = response.body()?.data ?: emptyList()
                     Result.success(categories)
                 } else {
+                    Log.w(TAG, "getCategories failed with code: ${response.code()}")
                     Result.failure(Exception("服务器错误: ${response.code()}"))
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.failure(Exception(getErrorMessage(e)))
             }
@@ -175,8 +204,11 @@ class VideoRepository {
                         Result.success(it)
                     } ?: Result.failure(Exception("统计信息不可用"))
                 } else {
+                    Log.w(TAG, "getStatistics failed with code: ${response.code()}")
                     Result.failure(Exception("服务器错误: ${response.code()}"))
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.failure(Exception(getErrorMessage(e)))
             }

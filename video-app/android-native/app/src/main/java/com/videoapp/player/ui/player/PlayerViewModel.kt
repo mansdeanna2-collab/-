@@ -1,11 +1,14 @@
 package com.videoapp.player.ui.player
 
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.videoapp.player.data.model.Video
 import com.videoapp.player.data.repository.VideoRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.launch
 
 /**
@@ -13,7 +16,20 @@ import kotlinx.coroutines.launch
  */
 class PlayerViewModel : ViewModel() {
     
+    companion object {
+        private const val TAG = "PlayerViewModel"
+    }
+    
     private val repository = VideoRepository()
+    
+    // Coroutine exception handler to prevent crashes
+    private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        if (throwable !is CancellationException) {
+            Log.e(TAG, "Coroutine exception", throwable)
+            _error.postValue(throwable.message ?: "发生未知错误")
+            _isLoading.postValue(false)
+        }
+    }
     
     // Current video
     private val _video = MutableLiveData<Video?>()
@@ -42,24 +58,32 @@ class PlayerViewModel : ViewModel() {
         
         currentVideoId = videoId
         
-        viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
-            
-            val result = repository.getVideo(videoId)
-            
-            result.fold(
-                onSuccess = { video ->
-                    _video.value = video
-                    // Load related videos
-                    loadRelatedVideos(video)
-                },
-                onFailure = { e ->
-                    _error.value = e.message ?: "加载视频失败"
-                }
-            )
-            
-            _isLoading.value = false
+        viewModelScope.launch(exceptionHandler) {
+            try {
+                _isLoading.value = true
+                _error.value = null
+                
+                val result = repository.getVideo(videoId)
+                
+                result.fold(
+                    onSuccess = { video ->
+                        _video.value = video
+                        // Load related videos
+                        loadRelatedVideos(video)
+                    },
+                    onFailure = { e ->
+                        Log.e(TAG, "Failed to load video $videoId", e)
+                        _error.value = e.message ?: "加载视频失败"
+                    }
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading video $videoId", e)
+                _error.value = e.message ?: "加载视频失败"
+            } finally {
+                _isLoading.value = false
+            }
         }
     }
     
@@ -67,30 +91,45 @@ class PlayerViewModel : ViewModel() {
      * Load related videos based on category
      */
     private suspend fun loadRelatedVideos(video: Video) {
-        if (video.videoCategory.isNullOrEmpty()) {
-            _relatedVideos.value = emptyList()
-            return
-        }
-        
-        val result = repository.getVideosByCategory(video.videoCategory, 6, 0)
-        
-        result.fold(
-            onSuccess = { videos ->
-                // Filter out current video
-                _relatedVideos.value = videos.filter { it.videoId != video.videoId }
-            },
-            onFailure = {
+        try {
+            if (video.videoCategory.isNullOrEmpty()) {
                 _relatedVideos.value = emptyList()
+                return
             }
-        )
+            
+            val result = repository.getVideosByCategory(video.videoCategory, 6, 0)
+            
+            result.fold(
+                onSuccess = { videos ->
+                    // Filter out current video
+                    _relatedVideos.value = videos.filter { it.videoId != video.videoId }
+                },
+                onFailure = { e ->
+                    Log.d(TAG, "Failed to load related videos: ${e.message}")
+                    _relatedVideos.value = emptyList()
+                }
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading related videos", e)
+            _relatedVideos.value = emptyList()
+        }
     }
     
     /**
      * Update play count when video starts playing
      */
     fun updatePlayCount(videoId: Int) {
-        viewModelScope.launch {
-            repository.updatePlayCount(videoId)
+        viewModelScope.launch(exceptionHandler) {
+            try {
+                repository.updatePlayCount(videoId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.d(TAG, "Failed to update play count: ${e.message}")
+                // Silently ignore play count errors
+            }
         }
     }
     
@@ -141,6 +180,7 @@ class PlayerViewModel : ViewModel() {
                 listOf(Episode("", url))
             }
         } catch (e: Exception) {
+            Log.e(TAG, "Error parsing episodes", e)
             // Fallback: treat the entire URL as a single episode
             if (url.isNotBlank()) listOf(Episode("", url)) else emptyList()
         }

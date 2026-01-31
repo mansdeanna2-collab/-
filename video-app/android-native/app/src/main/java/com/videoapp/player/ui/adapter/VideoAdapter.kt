@@ -1,5 +1,6 @@
 package com.videoapp.player.ui.adapter
 
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -20,6 +21,10 @@ class VideoAdapter(
     private val onVideoClick: (Video) -> Unit
 ) : ListAdapter<Video, VideoAdapter.VideoViewHolder>(VideoDiffCallback()) {
     
+    companion object {
+        private const val TAG = "VideoAdapter"
+    }
+    
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VideoViewHolder {
         val binding = ItemVideoCardBinding.inflate(
             LayoutInflater.from(parent.context),
@@ -30,7 +35,14 @@ class VideoAdapter(
     }
     
     override fun onBindViewHolder(holder: VideoViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        try {
+            // Bounds check before getting item
+            if (position >= 0 && position < itemCount) {
+                holder.bind(getItem(position))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error binding video at position $position", e)
+        }
     }
     
     inner class VideoViewHolder(
@@ -39,77 +51,103 @@ class VideoAdapter(
         
         init {
             binding.root.setOnClickListener {
-                val position = bindingAdapterPosition
-                if (position != RecyclerView.NO_POSITION) {
-                    onVideoClick(getItem(position))
+                try {
+                    val position = bindingAdapterPosition
+                    if (position != RecyclerView.NO_POSITION && position < itemCount) {
+                        onVideoClick(getItem(position))
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error handling video click", e)
                 }
             }
         }
         
         fun bind(video: Video) {
-            binding.apply {
-                // Title
-                titleText.text = video.videoTitle
-                
-                // Category badge
-                if (!video.videoCategory.isNullOrEmpty()) {
-                    categoryBadge.text = video.videoCategory
-                    categoryBadge.visibility = View.VISIBLE
-                } else {
-                    categoryBadge.visibility = View.GONE
+            try {
+                binding.apply {
+                    // Title
+                    titleText.text = video.videoTitle
+                    
+                    // Category badge
+                    if (!video.videoCategory.isNullOrEmpty()) {
+                        categoryBadge.text = video.videoCategory
+                        categoryBadge.visibility = View.VISIBLE
+                    } else {
+                        categoryBadge.visibility = View.GONE
+                    }
+                    
+                    // Play count
+                    if (video.playCount != null && video.playCount > 0) {
+                        playCountText.text = formatPlayCount(video.playCount)
+                        playCountText.visibility = View.VISIBLE
+                    } else {
+                        playCountText.visibility = View.GONE
+                    }
+                    
+                    // Duration
+                    if (!video.videoDuration.isNullOrEmpty()) {
+                        durationText.text = video.videoDuration
+                        durationText.visibility = View.VISIBLE
+                    } else {
+                        durationText.visibility = View.GONE
+                    }
+                    
+                    // Coins badge
+                    if (video.videoCoins != null && video.videoCoins > 0) {
+                        coinsBadge.text = "🪙 ${video.videoCoins}"
+                        coinsBadge.visibility = View.VISIBLE
+                    } else {
+                        coinsBadge.visibility = View.GONE
+                    }
+                    
+                    // Thumbnail image with size optimization
+                    loadThumbnail(video.videoImage)
                 }
-                
-                // Play count
-                if (video.playCount != null && video.playCount > 0) {
-                    playCountText.text = formatPlayCount(video.playCount)
-                    playCountText.visibility = View.VISIBLE
-                } else {
-                    playCountText.visibility = View.GONE
-                }
-                
-                // Duration
-                if (!video.videoDuration.isNullOrEmpty()) {
-                    durationText.text = video.videoDuration
-                    durationText.visibility = View.VISIBLE
-                } else {
-                    durationText.visibility = View.GONE
-                }
-                
-                // Coins badge
-                if (video.videoCoins != null && video.videoCoins > 0) {
-                    coinsBadge.text = "🪙 ${video.videoCoins}"
-                    coinsBadge.visibility = View.VISIBLE
-                } else {
-                    coinsBadge.visibility = View.GONE
-                }
-                
-                // Thumbnail image with size optimization
-                val imageUrl = ImageUtils.formatImageUrl(video.videoImage)
-                if (imageUrl.isNotEmpty()) {
-                    try {
-                        thumbnailImage.load(imageUrl) {
-                            crossfade(300)
-                            placeholder(R.drawable.ic_video_placeholder)
-                            error(R.drawable.ic_video_placeholder)
-                            transformations(RoundedCornersTransformation(12f))
-                            // Limit memory usage by setting size
-                            size(480, 270)
-                            // Allow hardware acceleration
-                            allowHardware(true)
-                        }
-                    } catch (e: Exception) {
-                        thumbnailImage.setImageResource(R.drawable.ic_video_placeholder)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error binding video: ${video.videoId}", e)
+                // Set fallback values
+                binding.titleText.text = video.videoTitle
+                binding.thumbnailImage.setImageResource(R.drawable.ic_video_placeholder)
+            }
+        }
+        
+        private fun loadThumbnail(imageUrl: String?) {
+            try {
+                val formattedUrl = ImageUtils.formatImageUrl(imageUrl)
+                if (formattedUrl.isNotEmpty()) {
+                    binding.thumbnailImage.load(formattedUrl) {
+                        crossfade(300)
+                        placeholder(R.drawable.ic_video_placeholder)
+                        error(R.drawable.ic_video_placeholder)
+                        transformations(RoundedCornersTransformation(12f))
+                        // Limit memory usage by setting size
+                        size(480, 270)
+                        // Allow hardware acceleration
+                        allowHardware(true)
+                        // Add listener for error handling
+                        listener(
+                            onError = { _, throwable ->
+                                Log.d(TAG, "Image load error: ${throwable.throwable?.message}")
+                            }
+                        )
                     }
                 } else {
-                    thumbnailImage.setImageResource(R.drawable.ic_video_placeholder)
+                    binding.thumbnailImage.setImageResource(R.drawable.ic_video_placeholder)
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading thumbnail", e)
+                binding.thumbnailImage.setImageResource(R.drawable.ic_video_placeholder)
             }
         }
         
         private fun formatPlayCount(count: Int): String {
-            return when {
-                count >= 10000 -> "${String.format("%.1f", count / 10000.0)}万次播放"
-                else -> "${count}次播放"
+            return try {
+                when {
+                    count >= 10000 -> "${String.format("%.1f", count / 10000.0)}万次播放"
+                    else -> "${count}次播放"
+                }
+            } catch (e: Exception) {
+                "${count}次播放"
             }
         }
     }

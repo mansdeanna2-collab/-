@@ -2,11 +2,21 @@
 # By default, the flags in this file are appended to flags specified
 # in ${sdk.dir}/tools/proguard/proguard-android.txt
 
+# General optimization settings
+-optimizationpasses 5
+-dontusemixedcaseclassnames
+-verbose
+
+# Keep source file names and line numbers for better crash reports
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
+
 # Retrofit and Gson
 -keepattributes Signature
 -keepattributes *Annotation*
 -keepattributes EnclosingMethod
 -keepattributes InnerClasses
+-keepattributes Exceptions
 
 # Retrofit
 -dontwarn retrofit2.**
@@ -20,6 +30,9 @@
 -keep class * implements com.google.gson.TypeAdapterFactory
 -keep class * implements com.google.gson.JsonSerializer
 -keep class * implements com.google.gson.JsonDeserializer
+-keepclassmembers,allowobfuscation class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
 
 # OkHttp
 -dontwarn okhttp3.**
@@ -36,6 +49,7 @@
 -keepclassmembers class kotlinx.coroutines.** {
     volatile <fields>;
 }
+-dontwarn kotlinx.coroutines.**
 
 # Keep data classes
 -keep class com.videoapp.player.data.model.Video { *; }
@@ -61,3 +75,41 @@
 
 # PlayerViewModel Episode inner class
 -keep class com.videoapp.player.ui.player.PlayerViewModel$Episode { *; }
+
+# Keep Application class
+-keep class com.videoapp.player.VideoApp { *; }
+
+# Keep Activities
+-keep class com.videoapp.player.ui.home.HomeActivity { *; }
+-keep class com.videoapp.player.ui.player.PlayerActivity { *; }
+
+# Keep ViewModels
+-keep class com.videoapp.player.ui.home.HomeViewModel { *; }
+-keep class com.videoapp.player.ui.player.PlayerViewModel { *; }
+
+# Keep adapters
+-keep class com.videoapp.player.ui.adapter.** { *; }
+
+# Keep API service
+-keep class com.videoapp.player.data.api.** { *; }
+
+# Keep repositories
+-keep class com.videoapp.player.data.repository.** { *; }
+
+# Keep utility classes
+-keep class com.videoapp.player.util.** { *; }
+
+# Multidex
+-keep class androidx.multidex.** { *; }
+
+# AndroidX
+-dontwarn androidx.**
+-keep class androidx.** { *; }
+-keep interface androidx.** { *; }
+
+# Keep Kotlin metadata
+-keepattributes RuntimeVisibleAnnotations
+-keep class kotlin.Metadata { *; }
+
+# Prevent stripping of methods with parameters annotated with @Nullable or @NonNull
+-keepattributes RuntimeVisibleParameterAnnotations
