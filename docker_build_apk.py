@@ -534,9 +534,15 @@ RUN echo ">>> 添加 Android 平台..." && \\
     npx cap add android && \\
     echo ">>> 同步 Web 资源到 Android..." && \\
     npx cap sync android && \\
+    echo ">>> 配置 Gradle 内存设置..." && \\
+    mkdir -p android/.gradle && \\
+    echo "org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError" > android/gradle.properties && \\
+    echo "org.gradle.workers.max=2" >> android/gradle.properties && \\
+    echo "org.gradle.parallel=false" >> android/gradle.properties && \\
+    echo "org.gradle.caching=false" >> android/gradle.properties && \\
     echo ">>> 使用 Gradle 构建 {build_type} APK..." && \\
     cd android && \\
-    ./gradlew {gradle_task} --no-daemon --stacktrace && \\
+    ./gradlew {gradle_task} --no-daemon --stacktrace --max-workers=2 && \\
     echo ">>> APK 构建完成"
 
 # 创建输出目录并复制APK

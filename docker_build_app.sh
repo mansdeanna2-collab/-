@@ -748,8 +748,13 @@ RUN cd video-app && npm run build
 RUN cd video-app && \
     npx cap add android && \
     npx cap sync android && \
+    mkdir -p android/.gradle && \
+    echo "org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError" > android/gradle.properties && \
+    echo "org.gradle.workers.max=2" >> android/gradle.properties && \
+    echo "org.gradle.parallel=false" >> android/gradle.properties && \
+    echo "org.gradle.caching=false" >> android/gradle.properties && \
     cd android && \
-    ./gradlew assembleDebug
+    ./gradlew assembleDebug --no-daemon --max-workers=2
 
 # 创建输出目录
 RUN mkdir -p /output/web /output/android && \
