@@ -364,7 +364,7 @@ COPY --from=builder /app/dist /output/dist
 '''
 
     ANDROID_DOCKERFILE = '''# Android build environment
-FROM node:20-bullseye
+FROM node:20-bookworm
 
 # Install required packages
 RUN apt-get update && apt-get install -y --no-install-recommends \\
@@ -373,13 +373,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \\
     python3 \\
     make \\
     g++ \\
-    openjdk-17-jdk \\
     wget \\
     unzip \\
+    ca-certificates \\
     && rm -rf /var/lib/apt/lists/*
 
+# Install OpenJDK 21 from Adoptium (Eclipse Temurin) with checksum verification
+RUN mkdir -p /opt/java && \\
+    wget -q https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.5%2B11/OpenJDK21U-jdk_x64_linux_hotspot_21.0.5_11.tar.gz -O /tmp/openjdk21.tar.gz && \\
+    echo "5f6edef70086604dfa43ce83c78123e2ec065690731b77a1e126c1dbeba57020  /tmp/openjdk21.tar.gz" | sha256sum -c - && \\
+    tar -xzf /tmp/openjdk21.tar.gz -C /opt/java && \\
+    rm /tmp/openjdk21.tar.gz
+
 # Set Java environment
-ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV JAVA_HOME=/opt/java/jdk-21.0.5+11
 ENV PATH=$JAVA_HOME/bin:$PATH
 
 # Install Android SDK

@@ -3,15 +3,15 @@ index caeeceb..b086a3b 100644
 --- a/node_modules/@capacitor/android/capacitor/build.gradle
 +++ b/node_modules/@capacitor/android/capacitor/build.gradle
 @@ -14,7 +14,7 @@ ext {
- 
- 
+
+
  buildscript {
 -    ext.kotlin_version = project.hasProperty("kotlin_version") ? rootProject.ext.kotlin_version : '1.9.25'
 +    ext.kotlin_version = project.hasProperty("kotlin_version") ? rootProject.ext.kotlin_version : '2.1.0'
      repositories {
          google()
          mavenCentral()
-@@ -57,15 +57,15 @@ android {
+@@ -57,11 +57,11 @@ android {
              proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
          }
      }
@@ -21,12 +21,6 @@ index caeeceb..b086a3b 100644
          abortOnError true
          warningsAsErrors true
          lintConfig file('lint.xml')
-     }
-     compileOptions {
--        sourceCompatibility JavaVersion.VERSION_21
--        targetCompatibility JavaVersion.VERSION_21
-+        sourceCompatibility JavaVersion.VERSION_17
-+        targetCompatibility JavaVersion.VERSION_17
      }
      publishing {
          singleVariant("release")
