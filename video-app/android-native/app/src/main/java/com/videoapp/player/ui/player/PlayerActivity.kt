@@ -38,7 +38,14 @@ class PlayerActivity : AppCompatActivity() {
     }
     
     private var _binding: ActivityPlayerBinding? = null
-    private val binding get() = _binding!!
+    // Safe binding getter that only throws if accessed after onDestroy
+    private val binding: ActivityPlayerBinding
+        get() {
+            if (isActivityDestroyed) {
+                throw IllegalStateException("Cannot access binding after activity destroyed")
+            }
+            return _binding ?: throw IllegalStateException("Binding not initialized")
+        }
     
     private val viewModel: PlayerViewModel by viewModels()
     
@@ -243,13 +250,8 @@ class PlayerActivity : AppCompatActivity() {
                             false
                         )
                         
-                        // Safe cast with fallback
-                        val button = if (inflatedView is Button) {
-                            inflatedView
-                        } else {
-                            // Try to find button in the inflated view if it's a ViewGroup
-                            null
-                        }
+                        // Safe cast - layout should be a Button, but handle gracefully if not
+                        val button = inflatedView as? Button
                         
                         if (button != null) {
                             button.text = episode.name.ifEmpty { "第${index + 1}集" }
@@ -259,7 +261,7 @@ class PlayerActivity : AppCompatActivity() {
                             }
                             binding.episodesContainer.addView(button)
                         } else {
-                            Log.w(TAG, "Episode button inflation failed for index $index")
+                            Log.w(TAG, "Episode button inflation returned unexpected type: ${inflatedView?.javaClass?.name}")
                         }
                     } catch (e: Exception) {
                         Log.e(TAG, "Error creating episode button at index $index", e)

@@ -35,7 +35,9 @@ class HomeActivity : AppCompatActivity() {
     }
     
     private var _binding: ActivityHomeBinding? = null
-    private val binding get() = _binding!!
+    // Safe binding getter with descriptive error message
+    private val binding: ActivityHomeBinding
+        get() = _binding ?: throw IllegalStateException("Binding not initialized or activity already destroyed")
     
     private val viewModel: HomeViewModel by viewModels()
     

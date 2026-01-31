@@ -40,7 +40,8 @@ android {
     }
 
     compileOptions {
-        // Use Java 11 for better compatibility with older Android versions and build systems
+        // Use Java 11 for compatibility with AGP 7.0+ and modern Kotlin versions
+        // while maintaining broad build system support (Java 17 requires AGP 8.0+)
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }

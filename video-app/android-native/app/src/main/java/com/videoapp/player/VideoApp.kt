@@ -14,12 +14,18 @@ import java.io.File
 /**
  * Application class for Video Player app
  * Extends MultiDexApplication for better compatibility with older Android versions
+ * 
+ * Note: The singleton instance is set in onCreate() which is always called on the main thread
+ * by the Android system before any other components are created.
  */
 class VideoApp : MultiDexApplication(), ImageLoaderFactory {
     
     companion object {
         private const val TAG = "VideoApp"
         
+        // Volatile ensures visibility across threads. Thread-safety is guaranteed by the
+        // Android framework which calls onCreate() on the main thread before any other
+        // application code can execute.
         @Volatile
         private var _instance: VideoApp? = null
         

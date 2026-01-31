@@ -52,8 +52,8 @@ object NetworkUtils {
             hasInternet && isValidated
         } catch (e: Exception) {
             Log.e(TAG, "Error checking network availability", e)
-            // In case of error, assume network is available to avoid blocking the user
-            true
+            // In case of error, return false to be safe - let the calling code handle it
+            false
         }
     }
     
@@ -67,7 +67,7 @@ object NetworkUtils {
             activeNetworkInfo?.isConnected == true
         } catch (e: Exception) {
             Log.e(TAG, "Error in fallback network check", e)
-            true // Assume connected if we can't check
+            false // Return false if we can't determine connectivity
         }
     }
     
