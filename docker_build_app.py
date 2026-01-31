@@ -379,9 +379,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \\
     && rm -rf /var/lib/apt/lists/*
 
 # Install OpenJDK 21 from Adoptium (Eclipse Temurin) with checksum verification
+# SHA256 checksum from: https://github.com/adoptium/temurin21-binaries/releases/tag/jdk-21.0.5%2B11
 RUN mkdir -p /opt/java && \\
     wget -q https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.5%2B11/OpenJDK21U-jdk_x64_linux_hotspot_21.0.5_11.tar.gz -O /tmp/openjdk21.tar.gz && \\
-    echo "5f6edef70086604dfa43ce83c78123e2ec065690731b77a1e126c1dbeba57020  /tmp/openjdk21.tar.gz" | sha256sum -c - && \\
+    echo "39733dccc82c25ea21ac952f207c3c64b17d0fe89833feab3050400e1e19242a  /tmp/openjdk21.tar.gz" | sha256sum -c - && \\
     tar -xzf /tmp/openjdk21.tar.gz -C /opt/java && \\
     rm /tmp/openjdk21.tar.gz
 
