@@ -133,31 +133,25 @@ docker compose down
 
 ### 基本使用
 
-```bash
-# 给脚本添加执行权限
-chmod +x docker_build_app.sh
+--check仅检查依赖项，不构建
+--release构建发布版 APK 而不是调试版 APK。
+--clean清理构建产物和 Docker 镜像
+--no-cache强制重建，不使用 Docker 缓存
+--dir指定自定义项目目录
+--output指定自定义输出目录
+使用示例：
+狂欢
+python3 docker_build_apk.py              # Build Debug APK
+python3 docker_build_apk.py --release    # Build Release APK
+python3 docker_build_apk.py --check      # Check dependencies only
+python3 docker_build_apk.py --clean      # Clean up build artifacts
+python3 docker_build_apk.py --no-cache   # Force complete rebuild
+该脚本通过以下方式确保一次性成功打包：
 
-# 检查所有依赖
-./docker_build_app.sh --check
-
-# 构建 Web 应用
-./docker_build_app.sh --web
-
-# 构建 Android APK
-./docker_build_app.sh --android
-
-# 构建 iOS 应用 (仅 macOS)
-./docker_build_app.sh --ios
-
-# 构建所有平台
-./docker_build_app.sh --all
-
-# 在 Docker 容器中构建 (推荐，无需本地安装依赖)
-./docker_build_app.sh --docker --android
-
-# 清理构建产物
-./docker_build_app.sh --clean
-```
+在开始构建之前预先验证所有依赖项
+使用 Docker 构建一致的构建环境
+提供详细的错误信息以便快速故障排除
+正确处理 Capacitor 工作流程（npm install → build → cap add android → cap sync → gradle build）
 
 ### 脚本功能
 
