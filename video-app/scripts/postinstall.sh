@@ -64,6 +64,7 @@ fi
 # Fix android-template
 # - Deprecated rootProject.buildDir -> layout.buildDirectory for Gradle 9.0 compatibility
 # - Add kotlin_version = '2.1.0' to variables.gradle for AGP 8.7.2 compatibility
+# - Java version: VERSION_21 -> VERSION_17 in app/build.gradle for openjdk-17-jdk compatibility
 ANDROID_TEMPLATE_PATH="node_modules/@capacitor/cli/assets/android-template.tar.gz"
 
 if [ -f "$ANDROID_TEMPLATE_PATH" ]; then
@@ -78,6 +79,11 @@ if [ -f "$ANDROID_TEMPLATE_PATH" ]; then
     if [ -f "$TEMP_DIR2/build.gradle" ]; then
         # Fix deprecated rootProject.buildDir -> layout.buildDirectory for Gradle 9.0 compatibility
         sed_inplace 's/rootProject\.buildDir/layout.buildDirectory/g' "$TEMP_DIR2/build.gradle"
+    fi
+    
+    # Fix Java version in app/build.gradle (change VERSION_21 to VERSION_17)
+    if [ -f "$TEMP_DIR2/app/build.gradle" ]; then
+        sed_inplace 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' "$TEMP_DIR2/app/build.gradle"
     fi
     
     # Add kotlin_version to variables.gradle for AGP 8.7.2 compatibility (requires Kotlin 2.1.0+)
@@ -98,5 +104,5 @@ if [ -f "$ANDROID_TEMPLATE_PATH" ]; then
     # Replace the original
     cp "$TEMP_DIR2/android-template.tar.gz" "$ANDROID_TEMPLATE_PATH"
     
-    echo "✓ Fixed buildDir deprecation and added kotlin_version in android-template"
+    echo "✓ Fixed buildDir deprecation, Java version, and added kotlin_version in android-template"
 fi
