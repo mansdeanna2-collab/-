@@ -78,11 +78,11 @@ function getBaseUrl() {
       baseUrl = app.globalData.apiBaseUrl
     } else {
       // 从配置中读取或使用默认值
-      baseUrl = 'http://localhost:5000/api'
+      baseUrl = 'http://103.74.193.179:5000/api'
     }
   } catch (e) {
     console.warn('获取全局配置失败，使用默认 API 地址')
-    baseUrl = 'http://localhost:5000/api'
+    baseUrl = 'http://103.74.193.179:5000/api'
   }
   // #endif
   

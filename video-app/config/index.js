@@ -19,13 +19,13 @@ export const APP_CONFIG = {
 export const API_CONFIG = {
   // 开发环境 API 地址
   development: {
-    baseUrl: 'http://localhost:5000/api',
+    baseUrl: 'http://103.74.193.179:5000/api',
     timeout: 30000
   },
   
   // 生产环境 API 地址
   production: {
-    baseUrl: 'https://your-production-domain.com/api',
+    baseUrl: 'http://103.74.193.179:5000/api',
     timeout: 30000
   },
   

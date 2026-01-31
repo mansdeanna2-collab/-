@@ -128,7 +128,7 @@
             "disableHostCheck": true,
             "proxy": {
                 "/api": {
-                    "target": "http://localhost:5000",
+                    "target": "http://103.74.193.179:5000",
                     "changeOrigin": true,
                     "secure": false
                 }
