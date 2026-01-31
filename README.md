@@ -173,44 +173,53 @@ docker compose down
 
 ## 🚀 全自动应用打包脚本 (推荐)
 
-使用 `docker_build_app.sh` 脚本可以全自动检测、安装依赖并打包应用。
+使用 `docker_build_app.py` 脚本可以全自动检测、安装依赖并打包应用，同时自动配置API接口地址。
 
 ### 基本使用
 
 | 选项 | 说明 |
 |------|------|
+| --platform | 目标平台: web, android, ios (默认: web) |
+| --release | 构建发布版而不是调试版 |
+| --api-url | 自定义API服务器地址 |
 | --check | 仅检查依赖项，不构建 |
-| --release | 构建发布版 APK 而不是调试版 APK |
 | --clean | 清理构建产物和 Docker 镜像 |
 | --no-cache | 强制重建，不使用 Docker 缓存 |
 | --dir | 指定自定义项目目录 |
 | --output | 指定自定义输出目录 |
-| --project-only | 仅导出 Android 项目，不执行 Gradle 构建 |
-| --use-actions | 显示 GitHub Actions 构建说明 |
+| --skip-api-config | 跳过API配置步骤 |
 
 使用示例：
 ```bash
-python3 docker_build_apk.py              # Build Debug APK
-python3 docker_build_apk.py --release    # Build Release APK
-python3 docker_build_apk.py --check      # Check dependencies only
-python3 docker_build_apk.py --clean      # Clean up build artifacts
-python3 docker_build_apk.py --no-cache   # Force complete rebuild
-python3 docker_build_apk.py --project-only  # Export Android project only
-python3 docker_build_apk.py --use-actions   # Show GitHub Actions instructions
+python3 docker_build_app.py                              # 构建Web版本
+python3 docker_build_app.py --platform android           # 构建Android APK
+python3 docker_build_app.py --platform android --release # 构建发布版APK
+python3 docker_build_app.py --api-url http://myserver:5000  # 自定义API地址
+python3 docker_build_app.py --check                      # 仅检查依赖
+python3 docker_build_app.py --clean                      # 清理构建产物
+python3 docker_build_app.py --no-cache                   # 强制完整重建
 ```
+
+### 自动API配置功能
+
+脚本会自动配置以下文件中的API接口地址：
+- `video-app/.env.local` - Vite环境变量
+- `video-app/config/index.js` - 前端配置文件
+- `video-app/capacitor.config.json` - Capacitor移动端配置
+- `video-app/nginx.conf` - Nginx代理配置
 
 该脚本通过以下方式确保一次性成功打包：
 - 在开始构建之前预先验证所有依赖项
 - 使用 Docker 构建一致的构建环境
+- 自动配置API接口地址
 - 提供详细的错误信息以便快速故障排除
 - 正确处理 Capacitor 工作流程（npm install → build → cap add android → cap sync → gradle build）
 
 ### 脚本功能
 
 - ✅ 自动检测并安装 Docker
-- ✅ 自动检测并安装 Node.js 和 npm
-- ✅ 自动检测并安装 Java JDK 17
-- ✅ 自动检测并安装 Android SDK
+- ✅ 自动配置API接口地址
+- ✅ 自动修改前端配置文件
 - ✅ 支持在 Docker 容器中完成构建
 - ✅ 支持 Ubuntu 和 macOS
 - ✅ 支持 Web、Android、iOS 多平台打包
