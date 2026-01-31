@@ -151,7 +151,7 @@ class CommandRunner:
                 shell=shell,
                 capture_output=capture,
                 text=True,
-                check=False,  # 我们手动处理
+                check=False,  # We handle manually
                 cwd=cwd,
                 env=run_env,
                 timeout=timeout
@@ -458,8 +458,8 @@ class DockerAPKBuilder:
         apk_name = f"app-{apk_subdir}.apk"
         
         dockerfile_content = f'''# ============================================================================
-# Docker APK 构建镜像
-# 自动生成 - {time.strftime("%Y-%m-%d %H:%M:%S")}
+# Docker APK Build Image
+# Auto-generated on {time.strftime("%Y-%m-%d %H:%M:%S")}
 # ============================================================================
 
 FROM node:{self.config.node_version}-bookworm
@@ -486,19 +486,19 @@ ENV ANDROID_HOME=/opt/android-sdk
 ENV ANDROID_SDK_ROOT=$ANDROID_HOME
 ENV PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
 
-# 安装 Android SDK
+# Install Android SDK
 RUN mkdir -p $ANDROID_HOME/cmdline-tools && \\
-    echo ">>> 下载 Android 命令行工具..." && \\
-    wget -q --show-progress https://dl.google.com/android/repository/commandlinetools-linux-{self.config.android_sdk_version}_latest.zip -O /tmp/cmdline-tools.zip && \\
-    echo ">>> 解压 Android 命令行工具..." && \\
+    echo ">>> Downloading Android command-line tools..." && \\
+    wget https://dl.google.com/android/repository/commandlinetools-linux-{self.config.android_sdk_version}_latest.zip -O /tmp/cmdline-tools.zip && \\
+    echo ">>> Extracting Android command-line tools..." && \\
     unzip -q /tmp/cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools && \\
     mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest && \\
     rm /tmp/cmdline-tools.zip && \\
-    echo ">>> 接受 Android SDK 许可证..." && \\
-    yes | sdkmanager --licenses > /dev/null 2>&1 || true && \\
-    echo ">>> 安装 Android SDK 组件..." && \\
+    echo ">>> Accepting Android SDK licenses..." && \\
+    (yes | sdkmanager --licenses > /dev/null 2>&1; exit_code=$?; if [ $exit_code -ne 0 ] && [ $exit_code -ne 141 ]; then echo "Warning: License acceptance returned $exit_code"; fi) && \\
+    echo ">>> Installing Android SDK components..." && \\
     sdkmanager "platform-tools" "platforms;android-{self.config.android_platform_version}" "build-tools;{self.config.android_build_tools_version}" && \\
-    echo ">>> Android SDK 安装完成"
+    echo ">>> Android SDK installation complete"
 
 # 设置工作目录
 WORKDIR /app
@@ -653,9 +653,10 @@ venv/
             
             self.output_dir.mkdir(parents=True, exist_ok=True)
             
-            # 删除已存在的临时容器
+            # 删除已存在的临时容器 (ignore errors if container doesn't exist)
             runner.run(
-                f"docker rm -f apk-temp-container 2>/dev/null || true",
+                "docker rm -f apk-temp-container",
+                capture=True,
                 check=False
             )
             
@@ -728,17 +729,26 @@ venv/
             log.success("输出目录已清理")
             cleaned = True
         
-        # 清理Docker镜像
+        # 清理Docker镜像 (Clean Docker images)
         for build_type in ['debug', 'release']:
             image_name = f"{self.config.docker_image_name}:{build_type}"
-            code, _, _ = runner.run(
-                f"docker rmi {image_name} 2>/dev/null || true",
+            # Check if image exists before attempting removal
+            check_code, stdout, _ = runner.run(
+                f"docker images -q {image_name}",
                 capture=True,
                 check=False
             )
-            if code == 0:
-                log.success(f"Docker 镜像已删除: {image_name}")
-                cleaned = True
+            if check_code == 0 and stdout.strip():
+                code, _, _ = runner.run(
+                    f"docker rmi {image_name}",
+                    capture=True,
+                    check=False
+                )
+                if code == 0:
+                    log.success(f"Docker 镜像已删除: {image_name}")
+                    cleaned = True
+                else:
+                    log.warning(f"无法删除 Docker 镜像: {image_name}")
         
         if cleaned:
             log.success("清理完成!")
