@@ -726,6 +726,227 @@ venv/
             if dockerignore_path.exists():
                 dockerignore_path.unlink()
     
+    def _create_project_only_dockerfile(self) -> Path:
+        """创建仅导出 Android 项目的 Dockerfile (不执行 Gradle 构建)"""
+        log.step("生成 Android 项目导出 Dockerfile...")
+        
+        self.docker_build_dir.mkdir(parents=True, exist_ok=True)
+        dockerfile_path = self.docker_build_dir / 'Dockerfile.project-only'
+        
+        dockerfile_content = f'''# ============================================================================
+# Docker Android 项目导出镜像 (不执行 Gradle 构建)
+# Docker Android Project Export Image (No Gradle Build)
+# 自动生成于 {time.strftime("%Y-%m-%d %H:%M:%S")}
+# ============================================================================
+# 此镜像仅导出 Android 项目，不执行 Gradle 构建
+# 可以使用 Android Studio 或 GitHub Actions 构建 APK
+
+FROM node:{self.config.node_version}-bookworm
+
+# 设置环境变量，避免交互式安装
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 安装必要的系统依赖 (不需要完整的 Android SDK)
+RUN apt-get update && apt-get install -y --no-install-recommends \\
+    openjdk-{self.config.java_version}-jdk \\
+    wget \\
+    unzip \\
+    curl \\
+    git \\
+    && rm -rf /var/lib/apt/lists/* \\
+    && apt-get clean
+
+# 设置 Java 环境变量
+ENV JAVA_HOME=/usr/lib/jvm/java-{self.config.java_version}-openjdk-amd64
+ENV PATH=$PATH:$JAVA_HOME/bin
+
+# 设置工作目录
+WORKDIR /app
+
+# 复制 package.json 和 package-lock.json (利用Docker缓存)
+COPY video-app/package*.json ./video-app/
+
+# 复制 patches 目录 (patch-package postinstall 脚本需要)
+COPY video-app/patches ./video-app/patches
+
+# 复制 scripts 目录 (postinstall 脚本需要)
+COPY video-app/scripts ./video-app/scripts
+
+# 安装 npm 依赖 (postinstall 会运行 patch-package)
+RUN echo ">>> 安装 npm 依赖..." && \\
+    cd video-app && npm ci && \\
+    echo ">>> npm 依赖安装完成"
+
+# 复制剩余的前端源代码
+COPY video-app/src ./video-app/src
+COPY video-app/index.html ./video-app/
+COPY video-app/vite.config.js ./video-app/
+COPY video-app/capacitor.config.json ./video-app/
+
+# 构建 Web 应用
+RUN echo ">>> 构建 Web 应用..." && \\
+    cd video-app && npm run build && \\
+    echo ">>> Web 应用构建完成"
+
+# 添加 Android 平台 (不执行 Gradle 构建)
+RUN echo ">>> 添加 Android 平台..." && \\
+    cd video-app && \\
+    npx cap add android && \\
+    echo ">>> 同步 Web 资源到 Android..." && \\
+    npx cap sync android && \\
+    echo ">>> Android 项目已准备就绪 (未执行 Gradle 构建)"
+
+# 创建输出目录并复制 Android 项目
+RUN mkdir -p /output && \\
+    cp -r video-app/android /output/android-project && \\
+    echo ">>> Android 项目已复制到输出目录"
+
+# 添加使用说明
+RUN echo "================================================" > /output/README.txt && \\
+    echo "Android 项目导出成功!" >> /output/README.txt && \\
+    echo "================================================" >> /output/README.txt && \\
+    echo "" >> /output/README.txt && \\
+    echo "构建 APK 的方法:" >> /output/README.txt && \\
+    echo "" >> /output/README.txt && \\
+    echo "方法 1: 使用 Android Studio" >> /output/README.txt && \\
+    echo "  1. 用 Android Studio 打开 android-project 目录" >> /output/README.txt && \\
+    echo "  2. 等待 Gradle 同步完成" >> /output/README.txt && \\
+    echo "  3. 点击 Build > Build Bundle(s) / APK(s) > Build APK(s)" >> /output/README.txt && \\
+    echo "" >> /output/README.txt && \\
+    echo "方法 2: 使用 GitHub Actions" >> /output/README.txt && \\
+    echo "  1. 将代码推送到 GitHub" >> /output/README.txt && \\
+    echo "  2. 在 Actions 页面触发 Build Android APK 工作流程" >> /output/README.txt && \\
+    echo "  3. 下载构建完成的 APK" >> /output/README.txt && \\
+    echo "" >> /output/README.txt && \\
+    echo "方法 3: 命令行构建" >> /output/README.txt && \\
+    echo "  cd android-project" >> /output/README.txt && \\
+    echo "  ./gradlew assembleDebug" >> /output/README.txt && \\
+    echo "" >> /output/README.txt
+'''
+        
+        dockerfile_path.write_text(dockerfile_content)
+        log.success(f"Dockerfile 已生成: {dockerfile_path}")
+        
+        return dockerfile_path
+    
+    def export_project_only(self, no_cache: bool = False) -> bool:
+        """
+        仅导出 Android 项目，不执行 Gradle 构建
+        
+        Args:
+            no_cache: 是否禁用 Docker 缓存
+            
+        Returns:
+            导出是否成功
+        """
+        log.header("导出 Android 项目 (不执行 Gradle 构建)")
+        
+        log.info(f"项目目录: {self.project_dir}")
+        log.info(f"输出目录: {self.output_dir}")
+        log.info("此模式仅导出 Android 项目，您可以使用以下方式构建 APK:")
+        log.info("  1. Android Studio")
+        log.info("  2. GitHub Actions")
+        log.info("  3. 本地 Gradle 命令行")
+        
+        # 创建 Dockerfile
+        dockerfile_path = self._create_project_only_dockerfile()
+        
+        # 创建 .dockerignore
+        dockerignore_path = self._create_dockerignore()
+        
+        try:
+            # 构建 Docker 镜像
+            log.step("构建 Docker 镜像 (仅准备 Android 项目)...")
+            
+            cache_option = "--no-cache" if no_cache else ""
+            build_cmd = (
+                f"docker build "
+                f"-f {dockerfile_path} "
+                f"--progress=plain "
+                f"{cache_option} "
+                f"-t {self.config.docker_image_name}:project-only "
+                f"."
+            )
+            
+            return_code = runner.run_with_output(build_cmd, cwd=str(self.project_dir))
+            
+            if return_code != 0:
+                log.error("Docker 镜像构建失败")
+                return False
+            
+            log.success("Docker 镜像构建成功")
+            
+            # 从容器中提取 Android 项目
+            log.step("从容器中提取 Android 项目...")
+            
+            self.output_dir.mkdir(parents=True, exist_ok=True)
+            
+            # 删除已存在的临时容器 (ignore errors if container doesn't exist)
+            runner.run(
+                "docker rm -f project-temp-container",
+                capture=True,
+                check=False
+            )
+            
+            # 创建临时容器
+            code, _, _ = runner.run(
+                f"docker create --name project-temp-container "
+                f"{self.config.docker_image_name}:project-only",
+                capture=True
+            )
+            
+            if code != 0:
+                log.error("创建临时容器失败")
+                return False
+            
+            # 复制 Android 项目
+            project_output_dir = self.output_dir / 'android-project'
+            if project_output_dir.exists():
+                shutil.rmtree(project_output_dir)
+            
+            code, _, _ = runner.run(
+                f"docker cp project-temp-container:/output/android-project "
+                f"{self.output_dir}/"
+            )
+            
+            # 复制说明文件
+            runner.run(
+                f"docker cp project-temp-container:/output/README.txt "
+                f"{self.output_dir}/",
+                check=False
+            )
+            
+            # 清理临时容器
+            runner.run("docker rm project-temp-container", check=False)
+            
+            if code != 0:
+                log.error("提取 Android 项目失败")
+                return False
+            
+            # 验证项目目录
+            if not project_output_dir.exists():
+                log.error(f"Android 项目目录不存在: {project_output_dir}")
+                return False
+            
+            log.success(f"Android 项目导出成功!")
+            log.success(f"项目路径: {project_output_dir}")
+            log.info("")
+            log.info("下一步操作:")
+            log.info("  1. 使用 Android Studio 打开项目并构建 APK")
+            log.info("  2. 或使用 GitHub Actions 自动构建 (推荐)")
+            log.info("     运行: python3 docker_build_apk.py --use-actions 查看详情")
+            
+            return True
+            
+        except Exception as e:
+            log.error(f"导出过程发生异常: {e}")
+            return False
+        
+        finally:
+            # 清理临时文件
+            if dockerignore_path.exists():
+                dockerignore_path.unlink()
+    
     def clean(self) -> bool:
         """清理构建产物"""
         log.header("清理构建产物")
@@ -747,7 +968,7 @@ venv/
             cleaned = True
         
         # 清理Docker镜像 (Clean Docker images)
-        for build_type in ['debug', 'release']:
+        for build_type in ['debug', 'release', 'project-only']:
             image_name = f"{self.config.docker_image_name}:{build_type}"
             # Check if image exists before attempting removal
             check_code, stdout, _ = runner.run(
@@ -793,6 +1014,52 @@ def show_banner():
     print(banner)
 
 
+def show_github_actions_instructions():
+    """显示 GitHub Actions 使用说明"""
+    instructions = f'''
+{Colors.CYAN}{Colors.BOLD}
+╔══════════════════════════════════════════════════════════════════════╗
+║           使用 GitHub Actions 构建 APK (推荐替代方案)                ║
+╚══════════════════════════════════════════════════════════════════════╝
+{Colors.RESET}
+
+{Colors.GREEN}优势 (Advantages):{Colors.RESET}
+  • 更稳定的构建环境，无需担心 Docker 内存限制
+  • GitHub 提供的专用 Android 构建环境
+  • 自动 Gradle 缓存，加速后续构建
+  • 构建产物自动保存，可随时下载
+
+{Colors.CYAN}使用步骤 (Usage Steps):{Colors.RESET}
+
+  {Colors.BOLD}1. 自动触发构建:{Colors.RESET}
+     将代码推送到 main 分支，或创建 Pull Request
+     GitHub Actions 会自动触发构建
+
+  {Colors.BOLD}2. 手动触发构建:{Colors.RESET}
+     a. 访问仓库的 Actions 页面
+     b. 选择 "Build Android APK" 工作流程
+     c. 点击 "Run workflow" 按钮
+     d. 选择构建类型 (debug/release)
+     e. 点击绿色的 "Run workflow" 按钮
+
+  {Colors.BOLD}3. 下载 APK:{Colors.RESET}
+     a. 等待构建完成 (约 5-10 分钟)
+     b. 点击完成的工作流程运行
+     c. 在 "Artifacts" 部分下载 APK 文件
+
+{Colors.YELLOW}工作流程文件位置:{Colors.RESET}
+  .github/workflows/build-apk.yml
+
+{Colors.CYAN}本地替代方案:{Colors.RESET}
+  如果需要在本地构建，可以使用以下命令导出 Android 项目:
+  
+  python3 docker_build_apk.py --project-only
+  
+  然后使用 Android Studio 打开项目并构建 APK。
+'''
+    print(instructions)
+
+
 def main():
     """主函数"""
     parser = argparse.ArgumentParser(
@@ -805,6 +1072,8 @@ def main():
   python3 docker_build_apk.py --check        # 仅检查依赖
   python3 docker_build_apk.py --clean        # 清理构建产物
   python3 docker_build_apk.py --no-cache     # 不使用Docker缓存重新构建
+  python3 docker_build_apk.py --project-only # 仅导出 Android 项目
+  python3 docker_build_apk.py --use-actions  # 查看 GitHub Actions 构建说明
 
 输出:
   APK文件将保存在 build-output/android/ 目录下
@@ -843,6 +1112,16 @@ def main():
         default=None,
         help='输出目录 (默认: build-output/android)'
     )
+    parser.add_argument(
+        '--project-only',
+        action='store_true',
+        help='仅导出 Android 项目，不构建 APK (可在 Android Studio 中打开)'
+    )
+    parser.add_argument(
+        '--use-actions',
+        action='store_true',
+        help='显示如何使用 GitHub Actions 构建 APK 的说明'
+    )
     
     args = parser.parse_args()
     
@@ -864,6 +1143,11 @@ def main():
     log.info(f"项目目录: {project_dir}")
     log.info(f"输出目录: {output_dir}")
     log.info(f"系统: {detector.detect_os()}")
+    
+    # 处理 GitHub Actions 说明
+    if args.use_actions:
+        show_github_actions_instructions()
+        sys.exit(0)
     
     # 初始化配置
     config = BuildConfig()
@@ -899,10 +1183,14 @@ def main():
     # 执行构建
     start_time = time.time()
     
-    success = builder.build(
-        release=args.release,
-        no_cache=args.no_cache
-    )
+    # 仅导出项目模式
+    if args.project_only:
+        success = builder.export_project_only(no_cache=args.no_cache)
+    else:
+        success = builder.build(
+            release=args.release,
+            no_cache=args.no_cache
+        )
     
     elapsed_time = time.time() - start_time
     elapsed_minutes = int(elapsed_time // 60)

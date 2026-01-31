@@ -1,0 +1,154 @@
+# ============================================================================
+# GitHub Actions Workflow: Build Android APK
+# ============================================================================
+#
+# 这个工作流程提供了一种可靠的替代方案来构建 Android APK，
+# 避免了在 Docker 容器中运行 Gradle 构建时的内存和资源问题。
+#
+# This workflow provides a reliable alternative for building Android APK,
+# avoiding memory and resource issues when running Gradle builds in Docker.
+#
+# 使用方法 (Usage):
+#   1. 自动触发: 推送到 main 分支或创建 Pull Request
+#   2. 手动触发: 在 GitHub Actions 页面点击 "Run workflow"
+#
+# ============================================================================
+
+name: Build Android APK
+
+on:
+  # 手动触发 (Manual trigger)
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type (debug/release)'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - release
+
+  # 推送到 main 分支时自动触发 (Auto trigger on push to main)
+  push:
+    branches:
+      - main
+    paths:
+      - 'video-app/**'
+      - '.github/workflows/build-apk.yml'
+
+  # Pull Request 时触发 (Trigger on PR)
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'video-app/**'
+      - '.github/workflows/build-apk.yml'
+
+# 限制并发执行 (Limit concurrency)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# 限制 GITHUB_TOKEN 权限 (Limit permissions)
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    # 设置超时时间 (Set timeout)
+    timeout-minutes: 30
+
+    steps:
+      # 检出代码 (Checkout code)
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 设置 Java 环境 (Setup Java)
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      # 设置 Node.js 环境 (Setup Node.js)
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'video-app/package-lock.json'
+
+      # 安装 npm 依赖 (Install npm dependencies)
+      - name: Install npm dependencies
+        working-directory: video-app
+        run: npm ci
+
+      # 构建 Web 应用 (Build web application)
+      - name: Build web application
+        working-directory: video-app
+        run: npm run build
+
+      # 添加 Android 平台 (Add Android platform)
+      - name: Add Android platform
+        working-directory: video-app
+        run: npx cap add android
+
+      # 同步 Capacitor (Sync Capacitor)
+      - name: Sync Capacitor
+        working-directory: video-app
+        run: npx cap sync android
+
+      # 配置 Gradle (Configure Gradle)
+      - name: Configure Gradle
+        working-directory: video-app/android
+        run: |
+          echo "# Gradle 配置 (Gradle Configuration)" > gradle.properties
+          echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8" >> gradle.properties
+          echo "org.gradle.parallel=true" >> gradle.properties
+          echo "org.gradle.caching=true" >> gradle.properties
+          echo "android.useAndroidX=true" >> gradle.properties
+          echo "android.enableJetifier=true" >> gradle.properties
+
+      # 确定构建类型 (Determine build type)
+      - name: Determine build type
+        id: build-type
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "type=${{ github.event.inputs.build_type }}" >> $GITHUB_OUTPUT
+            echo "task=assemble${{ github.event.inputs.build_type == 'release' && 'Release' || 'Debug' }}" >> $GITHUB_OUTPUT
+          else
+            echo "type=debug" >> $GITHUB_OUTPUT
+            echo "task=assembleDebug" >> $GITHUB_OUTPUT
+          fi
+
+      # 构建 APK (Build APK)
+      - name: Build APK
+        working-directory: video-app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew ${{ steps.build-type.outputs.task }} --no-daemon --stacktrace
+
+      # 上传 APK 构建产物 (Upload APK artifact)
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-app-${{ steps.build-type.outputs.type }}
+          path: video-app/android/app/build/outputs/apk/${{ steps.build-type.outputs.type }}/app-${{ steps.build-type.outputs.type }}.apk
+          retention-days: 30
+
+      # 显示构建信息 (Display build info)
+      - name: Build summary
+        run: |
+          echo "## 构建摘要 (Build Summary)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 项目 | 值 |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-----|" >> $GITHUB_STEP_SUMMARY
+          echo "| 构建类型 | ${{ steps.build-type.outputs.type }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| APK 路径 | video-app/android/app/build/outputs/apk/${{ steps.build-type.outputs.type }}/app-${{ steps.build-type.outputs.type }}.apk |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "APK 已上传为 artifact，可在 Actions 页面下载。" >> $GITHUB_STEP_SUMMARY

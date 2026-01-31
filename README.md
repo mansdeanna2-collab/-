@@ -133,31 +133,39 @@ docker compose down
 
 ### 基本使用
 
---check仅检查依赖项，不构建
---release构建发布版 APK 而不是调试版 APK。
---clean清理构建产物和 Docker 镜像
---no-cache强制重建，不使用 Docker 缓存
---dir指定自定义项目目录
---output指定自定义输出目录
+| 选项 | 说明 |
+|------|------|
+| --check | 仅检查依赖项，不构建 |
+| --release | 构建发布版 APK 而不是调试版 APK |
+| --clean | 清理构建产物和 Docker 镜像 |
+| --no-cache | 强制重建，不使用 Docker 缓存 |
+| --dir | 指定自定义项目目录 |
+| --output | 指定自定义输出目录 |
+| --project-only | 仅导出 Android 项目，不执行 Gradle 构建 |
+| --use-actions | 显示 GitHub Actions 构建说明 |
+
 使用示例：
-狂欢
+```bash
 python3 docker_build_apk.py              # Build Debug APK
 python3 docker_build_apk.py --release    # Build Release APK
 python3 docker_build_apk.py --check      # Check dependencies only
 python3 docker_build_apk.py --clean      # Clean up build artifacts
 python3 docker_build_apk.py --no-cache   # Force complete rebuild
-该脚本通过以下方式确保一次性成功打包：
+python3 docker_build_apk.py --project-only  # Export Android project only
+python3 docker_build_apk.py --use-actions   # Show GitHub Actions instructions
+```
 
-在开始构建之前预先验证所有依赖项
-使用 Docker 构建一致的构建环境
-提供详细的错误信息以便快速故障排除
-正确处理 Capacitor 工作流程（npm install → build → cap add android → cap sync → gradle build）
+该脚本通过以下方式确保一次性成功打包：
+- 在开始构建之前预先验证所有依赖项
+- 使用 Docker 构建一致的构建环境
+- 提供详细的错误信息以便快速故障排除
+- 正确处理 Capacitor 工作流程（npm install → build → cap add android → cap sync → gradle build）
 
 ### 脚本功能
 
 - ✅ 自动检测并安装 Docker
 - ✅ 自动检测并安装 Node.js 和 npm
-- ✅ 自动检测并安装 Java JDK 21
+- ✅ 自动检测并安装 Java JDK 17
 - ✅ 自动检测并安装 Android SDK
 - ✅ 支持在 Docker 容器中完成构建
 - ✅ 支持 Ubuntu 和 macOS
@@ -169,6 +177,27 @@ python3 docker_build_apk.py --no-cache   # Force complete rebuild
 - `build-output/web/` - H5 Web 应用
 - `build-output/android/video-app-debug.apk` - Android APK
 - `build-output/ios/` - iOS 项目
+
+## 🆕 GitHub Actions 构建 APK (推荐替代方案)
+
+如果 Docker 构建 APK 失败，推荐使用 GitHub Actions 构建：
+
+### 优势
+
+- ✅ 更稳定的构建环境，无需担心 Docker 内存限制
+- ✅ GitHub 提供的专用 Android 构建环境
+- ✅ 自动 Gradle 缓存，加速后续构建
+- ✅ 构建产物自动保存，可随时下载
+
+### 使用步骤
+
+1. **自动触发构建**：将代码推送到 main 分支，或创建 Pull Request
+2. **手动触发构建**：
+   - 访问仓库的 Actions 页面
+   - 选择 "Build Android APK" 工作流程
+   - 点击 "Run workflow" 按钮
+   - 选择构建类型 (debug/release)
+3. **下载 APK**：构建完成后，在 Artifacts 部分下载 APK 文件
 
 ## 手动打包移动端 App
 

@@ -4,6 +4,68 @@
 
 ---
 
+## 2026-01-31: 添加替代 APK 打包方案 (Alternative APK Packaging Solutions)
+
+### 问题描述 (Issue Description)
+
+在 Docker 容器中使用 Gradle 构建 Android APK 时持续失败，即使添加了内存优化配置也无法解决。错误信息：
+
+```
+BUILD FAILED in 1m 43s
+42 actionable tasks: 42 executed
+```
+
+Docker 环境的内存和资源限制导致 Gradle 构建不稳定。
+
+### 解决方案 (Solution)
+
+提供三种替代方案来构建 APK：
+
+#### 方案 1: GitHub Actions (推荐)
+
+添加 `.github/workflows/build-apk.yml` 工作流程：
+- 利用 GitHub 提供的专用 Android 构建环境
+- 更多内存和资源，构建更稳定
+- 自动 Gradle 缓存，加速后续构建
+- 构建产物自动保存，可随时下载
+
+使用方法：
+```bash
+# 查看 GitHub Actions 使用说明
+python3 docker_build_apk.py --use-actions
+```
+
+#### 方案 2: 仅导出 Android 项目
+
+添加 `--project-only` 选项：
+- 在 Docker 中完成 Web 应用构建和 Capacitor 同步
+- 导出 Android 项目，但不执行 Gradle 构建
+- 可以使用 Android Studio 或本地 Gradle 构建 APK
+
+使用方法：
+```bash
+# 仅导出 Android 项目
+python3 docker_build_apk.py --project-only
+```
+
+#### 方案 3: 原有 Docker 构建 (可能失败)
+
+保留原有的完整 Docker 构建功能，但可能因资源限制而失败。
+
+### 实施的更改 (Changes Made)
+
+**新增文件:**
+- `.github/workflows/build-apk.yml` - GitHub Actions APK 构建工作流程
+
+**修改文件: `docker_build_apk.py`**
+- 添加 `--project-only` 选项：仅导出 Android 项目
+- 添加 `--use-actions` 选项：显示 GitHub Actions 使用说明
+- 添加 `show_github_actions_instructions()` 函数
+- 添加 `export_project_only()` 方法
+- 添加 `_create_project_only_dockerfile()` 方法
+
+---
+
 ## 2026-01-31: Gradle 执行任务失败 (Gradle Execution Task Failure)
 
 ### 问题描述 (Issue Description)
