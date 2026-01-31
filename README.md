@@ -362,6 +362,52 @@ export MYSQL_PASSWORD=your_password
 
 如果 MySQL 不可用，自动降级到 SQLite。
 
+## API 服务器配置
+
+前端应用需要连接后端 API 服务器。默认配置连接到 `http://103.74.193.179:5000`。
+
+### 配置自定义 API 地址
+
+1. 复制环境变量示例文件:
+   ```bash
+   cd video-app
+   cp .env.example .env.local
+   ```
+
+2. 编辑 `.env.local` 文件，设置您的 API 服务器地址:
+   ```bash
+   VITE_API_BASE_URL=http://your-api-server:5000
+   ```
+
+3. 重启开发服务器:
+   ```bash
+   npm run dev
+   ```
+
+### 本地 API 服务器
+
+如果要使用本地 API 服务器:
+
+1. 启动后端 API 服务器:
+   ```bash
+   cd api
+   python api_server.py --sqlite
+   ```
+
+2. 设置环境变量指向本地服务器:
+   ```bash
+   # .env.local
+   VITE_API_BASE_URL=http://localhost:5000
+   ```
+
+### 故障排除
+
+如果看到黑屏且没有 API 流量:
+1. 检查 API 服务器是否正在运行
+2. 检查 `.env.local` 中的 `VITE_API_BASE_URL` 是否正确
+3. 打开浏览器开发者工具 (F12) 查看网络请求和控制台错误
+4. 确保使用正确的启动命令 (`npm run dev` 而非 HBuilderX)
+
 ## 导入视频数据
 
 从采集器导入:

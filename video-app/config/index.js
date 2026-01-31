@@ -16,16 +16,26 @@ export const APP_CONFIG = {
 }
 
 // API 配置
+// API base URL can be configured via VITE_API_BASE_URL environment variable
+const getApiBaseUrl = () => {
+  // Check for Vite environment variable first
+  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL
+  }
+  // Default API URL
+  return 'http://103.74.193.179:5000'
+}
+
 export const API_CONFIG = {
   // 开发环境 API 地址
   development: {
-    baseUrl: 'http://103.74.193.179:5000/api',
+    baseUrl: `${getApiBaseUrl()}/api`,
     timeout: 30000
   },
   
   // 生产环境 API 地址
   production: {
-    baseUrl: 'http://103.74.193.179:5000/api',
+    baseUrl: `${getApiBaseUrl()}/api`,
     timeout: 30000
   },
   
