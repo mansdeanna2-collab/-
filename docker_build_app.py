@@ -34,6 +34,7 @@ import json
 import re
 import time
 from typing import Tuple, Optional
+from urllib.parse import urlparse
 from pathlib import Path
 
 
@@ -251,9 +252,13 @@ VITE_API_BASE_URL={self.api_url}
             if 'server' not in config:
                 config['server'] = {}
 
+            # 使用urlparse提取主机名 (Use urlparse to extract hostname)
+            parsed_url = urlparse(self.api_url)
+            hostname = parsed_url.hostname or parsed_url.netloc.split(':')[0]
+
             # 设置允许的URL (用于开发调试)
             config['server']['allowNavigation'] = [
-                self.api_url.replace('http://', '').replace('https://', '').split(':')[0] + "*"
+                hostname + "*"
             ]
 
             with open(config_file, 'w', encoding='utf-8') as f:
