@@ -15,7 +15,7 @@
  */
 
 // Default fallback API base URL (without /api suffix)
-const FALLBACK_API_BASE_URL = 'http://103.74.193.179:5000'
+const FALLBACK_API_BASE_URL = 'http://localhost:5000'
 
 /**
  * Get the configured API base URL

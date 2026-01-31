@@ -39,7 +39,11 @@ try:
     from video_database import VideoDatabase
 except ImportError:
     # 如果同目录找不到,尝试父目录 (本地开发环境)
-    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    sys.path.insert(0, repo_root)
+    tools_path = os.path.join(repo_root, "tools")
+    if tools_path not in sys.path:
+        sys.path.insert(0, tools_path)
     try:
         from video_database import VideoDatabase
     except ImportError:
