@@ -27,7 +27,6 @@
         id="myVideo"
         :src="video.video_url"
         :poster="video.video_image"
-        autoplay
         controls
         class="video-player"
         @play="onPlay"

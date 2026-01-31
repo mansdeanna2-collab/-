@@ -1,6 +1,6 @@
 // #ifdef VUE3
 import { createSSRApp } from 'vue'
-import App from './App.vue'
+import App from './App.hbuilder.vue'
 
 export function createApp() {
   const app = createSSRApp(App)
@@ -12,7 +12,7 @@ export function createApp() {
 
 // #ifndef VUE3
 import Vue from 'vue'
-import App from './App.vue'
+import App from './App.hbuilder.vue'
 
 Vue.config.productionTip = false
 

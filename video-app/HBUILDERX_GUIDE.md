@@ -31,7 +31,9 @@
 在 `api/index.js` 中修改 API 基础地址：
 
 ```javascript
-// App 环境需要完整 URL
+// App 环境需要完整 URL (生产环境建议使用 https)
+baseUrl = 'https://your-server-domain.com/api'
+// 或开发环境
 baseUrl = 'http://your-server-ip:5000/api'
 ```
 

@@ -19,7 +19,16 @@ function request(options) {
     
     // #ifdef APP-PLUS
     // App 环境需要完整 URL，从全局配置获取
-    baseUrl = getApp().globalData?.apiBaseUrl || 'http://localhost:5000/api'
+    try {
+      const app = getApp()
+      if (app && app.globalData && app.globalData.apiBaseUrl) {
+        baseUrl = app.globalData.apiBaseUrl
+      } else {
+        baseUrl = 'http://localhost:5000/api'
+      }
+    } catch (e) {
+      baseUrl = 'http://localhost:5000/api'
+    }
     // #endif
 
     uni.request({

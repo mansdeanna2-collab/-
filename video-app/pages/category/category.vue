@@ -4,7 +4,7 @@
     <view class="header">
       <text class="title">{{ category }} 分类</text>
       <text class="count" v-if="videos.length > 0">
-        共 {{ totalCount }} 个视频
+        已加载 {{ loadedCount }} 个视频
       </text>
     </view>
 
@@ -78,7 +78,7 @@ export default {
     return {
       category: '',
       videos: [],
-      totalCount: 0,
+      loadedCount: 0,
       loading: true,
       error: false,
       errorMessage: '',
@@ -114,7 +114,7 @@ export default {
       try {
         const result = await videoApi.getVideosByCategory(this.category, this.limit)
         this.videos = result.data || result || []
-        this.totalCount = this.videos.length
+        this.loadedCount = this.videos.length
         this.hasMore = this.videos.length >= this.limit
       } catch (e) {
         this.error = true
@@ -135,7 +135,7 @@ export default {
         const result = await videoApi.getVideosByCategory(this.category, this.limit, offset)
         const newVideos = result.data || result || []
         this.videos = [...this.videos, ...newVideos]
-        this.totalCount = this.videos.length
+        this.loadedCount = this.videos.length
         this.hasMore = newVideos.length >= this.limit
       } catch (e) {
         console.error('Load more error:', e)
