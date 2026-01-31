@@ -77,3 +77,6 @@ build-output/
 .docker-build/
 Dockerfile.build
 video-app/Dockerfile.build
+
+# Gradle cache
+.gradle/

@@ -285,9 +285,9 @@ FROM alpine:latest AS output
 COPY --from=builder /app/dist /output/dist
 '''
 
-    # Android WebView APK 构建 Dockerfile
-    # 此版本创建一个简单的WebView应用，加载deploy.py部署的Web应用
-    ANDROID_DOCKERFILE = '''# Android WebView APK build environment
+    # Android Native APK 构建 Dockerfile
+    # 此版本构建原生Android应用，连接到deploy.py部署的API服务器
+    ANDROID_DOCKERFILE = '''# Android Native APK build environment
 FROM eclipse-temurin:17-jdk-jammy
 
 # Install required packages
@@ -312,31 +312,20 @@ RUN mkdir -p $ANDROID_HOME/cmdline-tools && \\
 RUN yes | sdkmanager --licenses && \\
     sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
 
-# Install Gradle
-ENV GRADLE_VERSION=8.4
-ENV GRADLE_HOME=/opt/gradle
-ENV PATH=$GRADLE_HOME/bin:$PATH
-
-RUN wget -q https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip -O gradle.zip && \\
-    unzip -q gradle.zip && \\
-    mv gradle-${GRADLE_VERSION} $GRADLE_HOME && \\
-    rm gradle.zip
-
 WORKDIR /app
 
 # Build arguments
 ARG WEB_APP_URL=http://localhost:8080
 ARG BUILD_TYPE=debug
 
-# Copy the Android project
-COPY android-webview/ .
+# Copy the Android project (includes gradle wrapper)
+COPY android-native/ .
 
-# Replace the URL in the MainActivity
-RUN sed -i "s|WEB_APP_URL_PLACEHOLDER|${WEB_APP_URL}|g" app/src/main/java/com/videoapp/player/MainActivity.java
+# Replace the API URL placeholder in build.gradle.kts
+RUN sed -i "s|API_BASE_URL_PLACEHOLDER|${WEB_APP_URL}|g" app/build.gradle.kts
 
-# Generate gradle wrapper and build the APK
-RUN gradle wrapper --gradle-version ${GRADLE_VERSION} && \\
-    chmod +x gradlew && \\
+# Ensure gradle wrapper is executable and build the APK
+RUN chmod +x gradlew && \\
     if [ "$BUILD_TYPE" = "release" ]; then \\
         ./gradlew assembleRelease --no-daemon; \\
     else \\
