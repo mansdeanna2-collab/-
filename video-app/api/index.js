@@ -15,7 +15,7 @@
  */
 
 // Default fallback API base URL (without /api suffix)
-const FALLBACK_API_BASE_URL = 'http://localhost:5000'
+const FALLBACK_API_BASE_URL = 'http://103.74.193.179:5000'
 
 /**
  * Get the configured API base URL
@@ -23,6 +23,14 @@ const FALLBACK_API_BASE_URL = 'http://localhost:5000'
  * @returns {string} The API base URL (without /api suffix)
  */
 function getDefaultApiBaseUrl() {
+  // Prefer environment overrides when available
+  if (typeof process !== 'undefined' && process.env) {
+    const envApiBaseUrl = process.env.VITE_API_BASE_URL || process.env.UNI_API_BASE_URL
+    if (envApiBaseUrl) {
+      return envApiBaseUrl
+    }
+  }
+
   // Check for Vite environment variable
   // Note: This works in Vite H5 mode; in uni-app mode, the getApp() method is used instead
   if (typeof window !== 'undefined' && window.__VITE_API_BASE_URL__) {
