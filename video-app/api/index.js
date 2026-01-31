@@ -149,6 +149,13 @@ function getBaseUrl() {
   }
   // #endif
   
+  // #ifdef H5
+  // H5 环境需要使用完整的 API URL
+  // 因为 HBuilderX 的 H5 开发服务器没有配置代理
+  // 只有 Vite 的开发服务器才有 /api 代理
+  baseUrl = `${getDefaultApiBaseUrl()}/api`
+  // #endif
+  
   return baseUrl
 }
 
