@@ -749,14 +749,17 @@ RUN cd video-app && \
     npx cap add android && \
     npx cap sync android && \
     mkdir -p android/.gradle && \
-    echo "# Memory settings - increased for Docker builds" > android/gradle.properties && \
-    echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8" >> android/gradle.properties && \
+    echo "# Memory settings - optimized for Docker builds" > android/gradle.properties && \
+    echo "org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8" >> android/gradle.properties && \
     echo "org.gradle.workers.max=2" >> android/gradle.properties && \
     echo "org.gradle.parallel=false" >> android/gradle.properties && \
     echo "org.gradle.caching=false" >> android/gradle.properties && \
     echo "org.gradle.daemon=false" >> android/gradle.properties && \
     echo "org.gradle.vfs.watch=false" >> android/gradle.properties && \
     echo "android.useAndroidX=true" >> android/gradle.properties && \
+    echo "# Network timeout settings for Docker builds" >> android/gradle.properties && \
+    echo "systemProp.org.gradle.internal.http.connectionTimeout=120000" >> android/gradle.properties && \
+    echo "systemProp.org.gradle.internal.http.socketTimeout=120000" >> android/gradle.properties && \
     cd android && \
     ./gradlew assembleDebug --no-daemon --max-workers=2 --no-watch-fs --warning-mode=all
 

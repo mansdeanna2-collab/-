@@ -536,8 +536,8 @@ RUN echo ">>> 添加 Android 平台..." && \\
     npx cap sync android && \\
     echo ">>> 配置 Gradle 设置..." && \\
     mkdir -p android/.gradle && \\
-    echo "# Memory settings - increased for Docker builds" > android/gradle.properties && \\
-    echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8" >> android/gradle.properties && \\
+    echo "# Memory settings - optimized for Docker builds" > android/gradle.properties && \\
+    echo "org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8" >> android/gradle.properties && \\
     echo "# Limit workers to prevent memory issues" >> android/gradle.properties && \\
     echo "org.gradle.workers.max=2" >> android/gradle.properties && \\
     echo "# Disable parallel and caching for more stable Docker builds" >> android/gradle.properties && \\
@@ -548,6 +548,9 @@ RUN echo ">>> 添加 Android 平台..." && \\
     echo "org.gradle.vfs.watch=false" >> android/gradle.properties && \\
     echo "# Enable AndroidX compatibility" >> android/gradle.properties && \\
     echo "android.useAndroidX=true" >> android/gradle.properties && \\
+    echo "# Network timeout settings for Docker builds" >> android/gradle.properties && \\
+    echo "systemProp.org.gradle.internal.http.connectionTimeout=120000" >> android/gradle.properties && \\
+    echo "systemProp.org.gradle.internal.http.socketTimeout=120000" >> android/gradle.properties && \\
     echo ">>> 使用 Gradle 构建 {build_type} APK..." && \\
     cd android && \\
     ./gradlew {gradle_task} --no-daemon --stacktrace --max-workers=2 --no-watch-fs --warning-mode=all && \\
