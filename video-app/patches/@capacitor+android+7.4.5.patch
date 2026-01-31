@@ -1,8 +1,16 @@
 diff --git a/node_modules/@capacitor/android/capacitor/build.gradle b/node_modules/@capacitor/android/capacitor/build.gradle
-index caeeceb..06a37c3 100644
+index caeeceb..b086a3b 100644
 --- a/node_modules/@capacitor/android/capacitor/build.gradle
 +++ b/node_modules/@capacitor/android/capacitor/build.gradle
-@@ -64,8 +64,8 @@ android {
+@@ -57,15 +57,15 @@ android {
+             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+         }
+     }
+-    lintOptions {
++    lint {
+         baseline file("lint-baseline.xml")
+         abortOnError true
+         warningsAsErrors true
          lintConfig file('lint.xml')
      }
      compileOptions {

@@ -4,6 +4,46 @@
 
 ---
 
+## 2026-01-31: 修复 Gradle 弃用警告 (Fix Gradle Deprecation Warnings)
+
+### 问题描述 (Issue Description)
+
+Android APK 构建时出现 Gradle 弃用警告：
+
+```
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+```
+
+构建可能会失败，显示 `SessionFailureReportingActionExecutor` 相关的堆栈跟踪。
+
+### 根本原因 (Root Cause)
+
+Capacitor 生成的 Android 项目模板使用了两个在 Gradle 8.x 中已弃用的功能：
+
+1. **`lintOptions`** - 在 `capacitor-cordova-android-plugins/build.gradle` 和 `@capacitor/android` 模块中使用，应改为 `lint`
+2. **`rootProject.buildDir`** - 在 `build.gradle` 中使用，应改为 `layout.buildDirectory`
+
+### 解决方案 (Solution)
+
+1. 更新 `@capacitor/android` 的 patch-package 补丁，将 `lintOptions` 改为 `lint`
+2. 扩展 `postinstall.sh` 脚本，在安装时修复两个 Capacitor CLI 模板：
+   - `capacitor-cordova-android-plugins.tar.gz`: 修复 `lintOptions` → `lint`
+   - `android-template.tar.gz`: 修复 `rootProject.buildDir` → `layout.buildDirectory`
+
+### 实施的更改 (Changes Made)
+
+**文件: `video-app/patches/@capacitor+android+7.4.5.patch`**
+- 添加 `lintOptions` → `lint` 的修复
+
+**文件: `video-app/scripts/postinstall.sh`**
+- 添加 `lintOptions` → `lint` 修复到 `capacitor-cordova-android-plugins.tar.gz` 模板
+- 添加 `rootProject.buildDir` → `layout.buildDirectory` 修复到 `android-template.tar.gz` 模板
+- 重构脚本，使用通用的 `sed_inplace` 辅助函数
+
+---
+
 ## 2026-01-31: 添加替代 APK 打包方案 (Alternative APK Packaging Solutions)
 
 ### 问题描述 (Issue Description)
