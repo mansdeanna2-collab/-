@@ -10,8 +10,10 @@
 
     <!-- Loading State -->
     <view v-if="loading" class="loading-state">
+      <view class="loading-logo">🎬</view>
       <view class="loading-spinner"></view>
-      <text>加载中...</text>
+      <text class="loading-text">加载中...</text>
+      <text class="loading-hint">正在获取分类视频</text>
     </view>
 
     <!-- Error State -->
@@ -301,6 +303,27 @@ export default {
   justify-content: center;
   padding: 100rpx 40rpx;
   text-align: center;
+  min-height: 60vh;
+  background: linear-gradient(180deg, #0a0a1a 0%, #1a1a3e 100%);
+  border-radius: 20rpx;
+  margin: 20rpx;
+}
+
+.loading-logo {
+  font-size: 120rpx;
+  margin-bottom: 40rpx;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
 }
 
 .loading-spinner {
@@ -310,6 +333,19 @@ export default {
   border-top-color: #00d4ff;
   border-radius: 50%;
   animation: spin 1s linear infinite;
+  margin-bottom: 20rpx;
+}
+
+.loading-text {
+  font-size: 32rpx;
+  color: #00d4ff;
+  font-weight: 500;
+  margin-bottom: 10rpx;
+}
+
+.loading-hint {
+  font-size: 24rpx;
+  color: #8b8b8b;
 }
 
 @keyframes spin {
