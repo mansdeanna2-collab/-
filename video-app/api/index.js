@@ -8,7 +8,14 @@
  * - API 健康检查
  * - 更细致的错误处理
  * - 数据格式验证
+ * 
+ * 配置说明：
+ * - 可以通过 VITE_API_BASE_URL 环境变量配置 API 地址
+ * - 也可以在 App.vue 中通过 globalData.apiBaseUrl 配置
  */
+
+// Default API base URL (without /api suffix)
+const DEFAULT_API_BASE_URL = 'http://103.74.193.179:5000'
 
 // API 基础配置
 const CONFIG = {
@@ -112,11 +119,11 @@ function getBaseUrl() {
       baseUrl = app.globalData.apiBaseUrl
     } else {
       // 从配置中读取或使用默认值
-      baseUrl = 'http://103.74.193.179:5000/api'
+      baseUrl = DEFAULT_API_BASE_URL + '/api'
     }
   } catch (e) {
     console.warn('获取全局配置失败，使用默认 API 地址')
-    baseUrl = 'http://103.74.193.179:5000/api'
+    baseUrl = DEFAULT_API_BASE_URL + '/api'
   }
   // #endif
   
