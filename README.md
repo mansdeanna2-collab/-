@@ -16,12 +16,13 @@
 │   └── capacitor.config.json  # 移动端配置
 ├── api/                # 后端 API 服务
 │   ├── api_server.py   # Flask API 服务器
+│   ├── Dockerfile      # API容器配置
 │   └── requirements.txt
-├── video_database.py   # 数据库模块 (MySQL/SQLite)
-├── video_collector.py  # 视频采集脚本
+├── tools/              # 工具脚本
+│   ├── video_database.py   # 数据库模块 (MySQL/SQLite)
+│   └── video_collector.py  # 视频采集脚本
 ├── deploy.py           # Docker自动部署脚本
-├── docker-compose.yml  # Docker Compose配置
-└── video_viewer.html   # 旧版 HTML 播放器
+└── docker-compose.yml  # Docker Compose配置
 ```
 
 ## 功能特性
@@ -290,8 +291,8 @@ export MYSQL_PASSWORD=your_password
 
 从采集器导入:
 ```bash
-python video_collector.py --all --format json
-python video_database.py --import-spjs videos_*.json
+python tools/video_collector.py --all --format json
+python tools/video_database.py --import-spjs videos_*.json
 ```
 
 ## 技术栈
