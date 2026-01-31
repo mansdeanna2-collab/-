@@ -37,9 +37,7 @@ object ApiClient {
         val configuredUrl = BuildConfig.API_BASE_URL
         
         // Check for placeholder or empty values
-        if (configuredUrl.isBlank() || 
-            configuredUrl == "API_BASE_URL_PLACEHOLDER" ||
-            configuredUrl == "\"API_BASE_URL_PLACEHOLDER\"") {
+        if (configuredUrl.isBlank() || configuredUrl == "API_BASE_URL_PLACEHOLDER") {
             return DEFAULT_BASE_URL
         }
         

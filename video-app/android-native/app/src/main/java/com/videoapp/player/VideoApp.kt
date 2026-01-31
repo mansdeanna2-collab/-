@@ -56,8 +56,6 @@ class VideoApp : Application(), ImageLoaderFactory {
         private var _instance: VideoApp? = null
         
         val instance: VideoApp
-            get() = _instance ?: throw IllegalStateException(
-                "VideoApp has not been initialized. Ensure the application is properly configured in AndroidManifest.xml"
-            )
+            get() = _instance ?: throw IllegalStateException("VideoApp not initialized")
     }
 }

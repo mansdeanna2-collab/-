@@ -2,6 +2,7 @@ package com.videoapp.player.ui.player
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import android.widget.Toast
@@ -326,8 +327,9 @@ class PlayerActivity : AppCompatActivity() {
             
             binding.errorView.visibility = View.GONE
         } catch (e: Exception) {
+            Log.e("PlayerActivity", "Failed to load video: ${e.message}", e)
             binding.errorView.visibility = View.VISIBLE
-            binding.errorText.text = "视频加载失败: ${e.message ?: "未知错误"}"
+            binding.errorText.text = getString(R.string.video_load_failed)
         }
     }
     
