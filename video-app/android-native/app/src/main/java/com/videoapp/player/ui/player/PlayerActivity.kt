@@ -218,13 +218,6 @@ class PlayerActivity : AppCompatActivity() {
                                 }
                                 Player.STATE_READY -> {
                                     binding.playerLoadingView.visibility = View.GONE
-                                    // Record play count once when video starts
-                                    if (!hasRecordedPlay && exoPlayer.isPlaying) {
-                                        hasRecordedPlay = true
-                                        viewModel.video.value?.let {
-                                            viewModel.updatePlayCount(it.videoId)
-                                        }
-                                    }
                                 }
                                 Player.STATE_ENDED -> {
                                     // Auto-play next episode
@@ -240,6 +233,7 @@ class PlayerActivity : AppCompatActivity() {
                         }
                         
                         override fun onIsPlayingChanged(isPlaying: Boolean) {
+                            // Record play count once when video starts playing
                             if (isPlaying && !hasRecordedPlay) {
                                 hasRecordedPlay = true
                                 viewModel.video.value?.let {

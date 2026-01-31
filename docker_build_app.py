@@ -950,6 +950,12 @@ def build_native_android(base_dir: str, output_dir: str, api_url: str,
     dockerfile_content = '''# Native Android build environment
 FROM eclipse-temurin:17-jdk-jammy
 
+# Build arguments for version control
+ARG CMDLINE_TOOLS_VERSION=11076708
+ARG ANDROID_BUILD_TOOLS_VERSION=34.0.0
+ARG ANDROID_PLATFORM_VERSION=android-34
+ARG GRADLE_VERSION=8.4
+
 # Install required packages
 RUN apt-get update && apt-get install -y --no-install-recommends \\
     wget \\
@@ -964,17 +970,16 @@ ENV PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PA
 
 RUN mkdir -p $ANDROID_HOME/cmdline-tools && \\
     cd $ANDROID_HOME/cmdline-tools && \\
-    wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip && \\
+    wget -q https://dl.google.com/android/repository/commandlinetools-linux-${CMDLINE_TOOLS_VERSION}_latest.zip -O cmdline-tools.zip && \\
     unzip -q cmdline-tools.zip && \\
     mv cmdline-tools latest && \\
     rm cmdline-tools.zip
 
 # Accept licenses and install required SDK components
 RUN yes | sdkmanager --licenses && \\
-    sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+    sdkmanager "platforms;${ANDROID_PLATFORM_VERSION}" "build-tools;${ANDROID_BUILD_TOOLS_VERSION}" "platform-tools"
 
 # Install Gradle
-ENV GRADLE_VERSION=8.4
 ENV GRADLE_HOME=/opt/gradle
 ENV PATH=$GRADLE_HOME/bin:$PATH
 

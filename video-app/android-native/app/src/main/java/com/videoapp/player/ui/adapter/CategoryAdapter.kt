@@ -79,7 +79,7 @@ class CategoryAdapter(
         
         fun bindAllOption(isSelected: Boolean) {
             binding.apply {
-                categoryName.text = "全部"
+                categoryName.text = itemView.context.getString(com.videoapp.player.R.string.all_categories)
                 categoryCount.visibility = View.GONE
                 
                 updateSelection(isSelected)
