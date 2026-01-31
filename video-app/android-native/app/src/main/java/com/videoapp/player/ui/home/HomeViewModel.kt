@@ -8,7 +8,6 @@ import com.videoapp.player.data.model.Category
 import com.videoapp.player.data.model.Statistics
 import com.videoapp.player.data.model.Video
 import com.videoapp.player.data.repository.VideoRepository
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /**

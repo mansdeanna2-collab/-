@@ -425,6 +425,5 @@ class PlayerActivity : AppCompatActivity() {
         super.onDestroy()
         // Ensure player is fully released
         releasePlayer()
-        // Clear binding reference to prevent memory leaks
     }
 }
