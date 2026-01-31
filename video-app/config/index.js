@@ -21,6 +21,14 @@ export const APP_CONFIG = {
 const DEFAULT_API_BASE_URL = 'http://103.74.193.179:5000'
 
 const getApiBaseUrl = () => {
+  // Prefer environment overrides when available
+  if (typeof process !== 'undefined' && process.env) {
+    const envApiBaseUrl = process.env.VITE_API_BASE_URL || process.env.UNI_API_BASE_URL
+    if (envApiBaseUrl) {
+      return envApiBaseUrl
+    }
+  }
+
   // Return the default API URL
   // In H5/Vite mode, the proxy is configured in vite.config.js
   // In uni-app mode, API base URL can be set via App.vue globalData
