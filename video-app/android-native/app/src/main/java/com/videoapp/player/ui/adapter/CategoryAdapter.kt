@@ -1,5 +1,6 @@
 package com.videoapp.player.ui.adapter
 
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -16,6 +17,10 @@ class CategoryAdapter(
     private val onCategoryClick: (Category?) -> Unit
 ) : ListAdapter<Category, CategoryAdapter.CategoryViewHolder>(CategoryDiffCallback()) {
     
+    companion object {
+        private const val TAG = "CategoryAdapter"
+    }
+    
     private var selectedPosition = 0
     private var showAllOption = true
     
@@ -29,17 +34,26 @@ class CategoryAdapter(
     }
     
     override fun onBindViewHolder(holder: CategoryViewHolder, position: Int) {
-        if (showAllOption && position == 0) {
-            holder.bindAllOption(position == selectedPosition)
-        } else {
-            val adjustedPosition = if (showAllOption) position - 1 else position
-            // Bounds check to prevent IndexOutOfBoundsException
-            if (adjustedPosition >= 0 && adjustedPosition < super.getItemCount()) {
-                holder.bind(getItem(adjustedPosition), position == selectedPosition)
+        try {
+            if (showAllOption && position == 0) {
+                holder.bindAllOption(position == selectedPosition)
             } else {
-                // Fallback to "All" option if position is out of bounds
-                holder.bindAllOption(false)
+                val adjustedPosition = if (showAllOption) position - 1 else position
+                val itemCount = super.getItemCount()
+                
+                // Bounds check to prevent IndexOutOfBoundsException
+                if (adjustedPosition >= 0 && adjustedPosition < itemCount) {
+                    holder.bind(getItem(adjustedPosition), position == selectedPosition)
+                } else {
+                    // Fallback to "All" option if position is out of bounds
+                    Log.w(TAG, "Position $adjustedPosition out of bounds (count: $itemCount), showing fallback")
+                    holder.bindAllOption(false)
+                }
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error binding category at position $position", e)
+            // Safe fallback
+            holder.bindAllOption(false)
         }
     }
     
@@ -48,10 +62,21 @@ class CategoryAdapter(
     }
     
     fun selectCategory(position: Int) {
-        val oldPosition = selectedPosition
-        selectedPosition = position
-        notifyItemChanged(oldPosition)
-        notifyItemChanged(position)
+        try {
+            val oldPosition = selectedPosition
+            selectedPosition = position
+            
+            // Validate positions before notifying
+            val totalCount = itemCount
+            if (oldPosition in 0 until totalCount) {
+                notifyItemChanged(oldPosition)
+            }
+            if (position in 0 until totalCount) {
+                notifyItemChanged(position)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error selecting category at position $position", e)
+        }
     }
     
     inner class CategoryViewHolder(
@@ -60,15 +85,28 @@ class CategoryAdapter(
         
         init {
             binding.root.setOnClickListener {
-                val position = bindingAdapterPosition
-                if (position != RecyclerView.NO_POSITION) {
-                    selectCategory(position)
-                    if (showAllOption && position == 0) {
-                        onCategoryClick(null)
-                    } else {
-                        val adjustedPosition = if (showAllOption) position - 1 else position
-                        onCategoryClick(getItem(adjustedPosition))
+                try {
+                    val position = bindingAdapterPosition
+                    if (position != RecyclerView.NO_POSITION) {
+                        selectCategory(position)
+                        if (showAllOption && position == 0) {
+                            onCategoryClick(null)
+                        } else {
+                            val adjustedPosition = if (showAllOption) position - 1 else position
+                            val itemCount = this@CategoryAdapter.currentList.size
+                            
+                            if (adjustedPosition >= 0 && adjustedPosition < itemCount) {
+                                onCategoryClick(getItem(adjustedPosition))
+                            } else {
+                                // If out of bounds, treat as "All" category
+                                onCategoryClick(null)
+                            }
+                        }
                     }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error handling category click", e)
+                    // Fallback to "All" on error
+                    onCategoryClick(null)
                 }
             }
         }

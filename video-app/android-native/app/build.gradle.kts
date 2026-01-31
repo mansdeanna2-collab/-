@@ -20,6 +20,9 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        
+        // Enable multidex for better compatibility with older Android versions
+        multiDexEnabled = true
     }
 
     buildTypes {
@@ -37,17 +40,26 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        // Use Java 11 for better compatibility with older Android versions and build systems
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
 
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = "11"
     }
 
     buildFeatures {
         viewBinding = true
         buildConfig = true
+    }
+    
+    // Packaging options to avoid conflicts
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/DEPENDENCIES"
+        }
     }
 }
 
@@ -84,4 +96,7 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    
+    // Multidex for better backward compatibility
+    implementation("androidx.multidex:multidex:2.0.1")
 }
