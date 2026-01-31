@@ -296,19 +296,39 @@ class PlayerActivity : AppCompatActivity() {
     
     private fun playCurrentEpisode() {
         val episodes = viewModel.getEpisodes()
-        if (episodes.isEmpty()) return
-        
-        val episode = episodes.getOrNull(currentEpisodeIndex) ?: return
-        
-        player?.apply {
-            val mediaItem = MediaItem.fromUri(episode.url)
-            setMediaItem(mediaItem)
-            playWhenReady = this@PlayerActivity.playWhenReady
-            seekTo(playbackPosition)
-            prepare()
+        if (episodes.isEmpty()) {
+            binding.errorView.visibility = View.VISIBLE
+            binding.errorText.text = "没有可播放的视频"
+            return
         }
         
-        binding.errorView.visibility = View.GONE
+        val episode = episodes.getOrNull(currentEpisodeIndex) ?: run {
+            binding.errorView.visibility = View.VISIBLE
+            binding.errorText.text = "视频集数不存在"
+            return
+        }
+        
+        // Validate URL before attempting to play
+        if (episode.url.isBlank()) {
+            binding.errorView.visibility = View.VISIBLE
+            binding.errorText.text = "视频地址无效"
+            return
+        }
+        
+        try {
+            player?.apply {
+                val mediaItem = MediaItem.fromUri(episode.url)
+                setMediaItem(mediaItem)
+                playWhenReady = this@PlayerActivity.playWhenReady
+                seekTo(playbackPosition)
+                prepare()
+            }
+            
+            binding.errorView.visibility = View.GONE
+        } catch (e: Exception) {
+            binding.errorView.visibility = View.VISIBLE
+            binding.errorText.text = "视频加载失败: ${e.message ?: "未知错误"}"
+        }
     }
     
     private fun showSpeedDialog() {

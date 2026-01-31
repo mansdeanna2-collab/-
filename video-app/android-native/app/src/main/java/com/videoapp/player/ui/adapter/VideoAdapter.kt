@@ -86,15 +86,19 @@ class VideoAdapter(
                 // Thumbnail image with size optimization
                 val imageUrl = ImageUtils.formatImageUrl(video.videoImage)
                 if (imageUrl.isNotEmpty()) {
-                    thumbnailImage.load(imageUrl) {
-                        crossfade(300)
-                        placeholder(R.drawable.ic_video_placeholder)
-                        error(R.drawable.ic_video_placeholder)
-                        transformations(RoundedCornersTransformation(12f))
-                        // Limit memory usage by setting size
-                        size(480, 270)
-                        // Allow hardware acceleration
-                        allowHardware(true)
+                    try {
+                        thumbnailImage.load(imageUrl) {
+                            crossfade(300)
+                            placeholder(R.drawable.ic_video_placeholder)
+                            error(R.drawable.ic_video_placeholder)
+                            transformations(RoundedCornersTransformation(12f))
+                            // Limit memory usage by setting size
+                            size(480, 270)
+                            // Allow hardware acceleration
+                            allowHardware(true)
+                        }
+                    } catch (e: Exception) {
+                        thumbnailImage.setImageResource(R.drawable.ic_video_placeholder)
                     }
                 } else {
                     thumbnailImage.setImageResource(R.drawable.ic_video_placeholder)

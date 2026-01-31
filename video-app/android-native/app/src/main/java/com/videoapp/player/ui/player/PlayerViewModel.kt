@@ -111,20 +111,38 @@ class PlayerViewModel : ViewModel() {
         
         if (url.isBlank()) return emptyList()
         
-        return if (url.contains("#")) {
-            url.split("#").mapIndexed { index, part ->
-                if (part.contains("$")) {
-                    val (name, episodeUrl) = part.split("$", limit = 2)
-                    Episode(name, episodeUrl)
-                } else {
-                    Episode("第${index + 1}集", part)
+        return try {
+            if (url.contains("#")) {
+                url.split("#").mapIndexedNotNull { index, part ->
+                    if (part.isBlank()) return@mapIndexedNotNull null
+                    if (part.contains("$")) {
+                        val parts = part.split("$", limit = 2)
+                        if (parts.size == 2 && parts[1].isNotBlank()) {
+                            Episode(parts[0], parts[1])
+                        } else if (parts.isNotEmpty() && parts[0].isNotBlank()) {
+                            Episode("第${index + 1}集", parts[0])
+                        } else {
+                            null
+                        }
+                    } else {
+                        Episode("第${index + 1}集", part)
+                    }
                 }
+            } else if (url.contains("$")) {
+                val parts = url.split("$", limit = 2)
+                if (parts.size == 2 && parts[1].isNotBlank()) {
+                    listOf(Episode(parts[0], parts[1]))
+                } else if (parts.isNotEmpty() && parts[0].isNotBlank()) {
+                    listOf(Episode("", parts[0]))
+                } else {
+                    emptyList()
+                }
+            } else {
+                listOf(Episode("", url))
             }
-        } else if (url.contains("$")) {
-            val (name, episodeUrl) = url.split("$", limit = 2)
-            listOf(Episode(name, episodeUrl))
-        } else {
-            listOf(Episode("", url))
+        } catch (e: Exception) {
+            // Fallback: treat the entire URL as a single episode
+            if (url.isNotBlank()) listOf(Episode("", url)) else emptyList()
         }
     }
     
