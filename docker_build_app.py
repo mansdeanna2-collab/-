@@ -3,21 +3,20 @@
 """
 Docker环境应用打包脚本 (Docker App Build Script)
 ================================================
-在Docker环境中打包video-app并自动配置API接口
+在Docker环境中打包video-app
 
 功能:
 - 自动检测并安装Docker
 - 自动配置API接口地址
-- 自动修改前端配置文件
-- 支持Web/Android/iOS多平台打包
+- 支持Web版本和Android WebView APK打包
+- Android APK包装deploy.py部署的Web应用
 - 支持调试版和发布版构建
 
 使用方法:
     python3 docker_build_app.py                      # 构建Web版本
-    python3 docker_build_app.py --platform android   # 构建Android APK
-    python3 docker_build_app.py --platform ios       # 构建iOS项目
+    python3 docker_build_app.py --platform android   # 构建Android WebView APK
     python3 docker_build_app.py --release            # 构建发布版
-    python3 docker_build_app.py --api-url http://your-api:5000  # 自定义API地址
+    python3 docker_build_app.py --web-url http://your-server:8080  # 自定义Web应用地址
     python3 docker_build_app.py --check              # 仅检查依赖
     python3 docker_build_app.py --clean              # 清理构建产物
 
@@ -197,79 +196,6 @@ VITE_API_BASE_URL={self.api_url}
             print_error(f"创建 .env.local 失败: {e}")
             return False
 
-    def update_config_js(self) -> bool:
-        """
-        更新config/index.js中的API配置 (Update API config in config/index.js)
-
-        Returns:
-            是否成功 (Whether successful)
-        """
-        config_file = self.video_app_dir / "config" / "index.js"
-
-        if not config_file.exists():
-            print_warning(f"配置文件不存在: {config_file}")
-            return True  # 不是致命错误
-
-        try:
-            with open(config_file, 'r', encoding='utf-8') as f:
-                content = f.read()
-
-            # 替换DEFAULT_API_BASE_URL
-            pattern = r"const DEFAULT_API_BASE_URL = '[^']*'"
-            replacement = f"const DEFAULT_API_BASE_URL = '{self.api_url}'"
-
-            if re.search(pattern, content):
-                new_content = re.sub(pattern, replacement, content)
-                with open(config_file, 'w', encoding='utf-8') as f:
-                    f.write(new_content)
-                print_success("已更新 config/index.js 中的API地址")
-            else:
-                print_warning("config/index.js 中未找到 DEFAULT_API_BASE_URL")
-
-            return True
-        except Exception as e:
-            print_error(f"更新 config/index.js 失败: {e}")
-            return False
-
-    def update_capacitor_config(self) -> bool:
-        """
-        更新Capacitor配置 (Update Capacitor configuration)
-
-        Returns:
-            是否成功 (Whether successful)
-        """
-        config_file = self.video_app_dir / "capacitor.config.json"
-
-        if not config_file.exists():
-            print_warning(f"Capacitor配置文件不存在: {config_file}")
-            return True
-
-        try:
-            with open(config_file, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-
-            # 确保server配置存在
-            if 'server' not in config:
-                config['server'] = {}
-
-            # 使用urlparse提取主机名 (Use urlparse to extract hostname)
-            parsed_url = urlparse(self.api_url)
-            hostname = parsed_url.hostname or parsed_url.netloc.split(':')[0]
-
-            # 设置允许的URL (用于开发调试)
-            config['server']['allowNavigation'] = [
-                hostname + "*"
-            ]
-
-            with open(config_file, 'w', encoding='utf-8') as f:
-                json.dump(config, f, indent=2)
-
-            print_success("已更新 capacitor.config.json")
-            return True
-        except Exception as e:
-            print_error(f"更新 capacitor.config.json 失败: {e}")
-            return False
-
     def update_nginx_config(self) -> bool:
         """
         更新Nginx配置中的API代理 (Update API proxy in Nginx config)
@@ -315,8 +241,6 @@ VITE_API_BASE_URL={self.api_url}
 
         results = [
             self.update_env_file(),
-            self.update_config_js(),
-            self.update_capacitor_config(),
             self.update_nginx_config()
         ]
 
@@ -331,7 +255,7 @@ VITE_API_BASE_URL={self.api_url}
 class DockerBuilder:
     """Docker构建器 (Docker Builder)"""
 
-    # 构建用Dockerfile模板
+    # 构建用Dockerfile模板 - Web版本
     BUILD_DOCKERFILE = '''# Multi-platform build environment
 FROM node:20-alpine AS builder
 
@@ -361,32 +285,17 @@ FROM alpine:latest AS output
 COPY --from=builder /app/dist /output/dist
 '''
 
-    ANDROID_DOCKERFILE = '''# Android build environment
-FROM node:20-bookworm
+    # Android WebView APK 构建 Dockerfile
+    # 此版本创建一个简单的WebView应用，加载deploy.py部署的Web应用
+    ANDROID_DOCKERFILE = '''# Android WebView APK build environment
+FROM eclipse-temurin:17-jdk-jammy
 
 # Install required packages
 RUN apt-get update && apt-get install -y --no-install-recommends \\
-    bash \\
-    git \\
-    python3 \\
-    make \\
-    g++ \\
     wget \\
     unzip \\
     ca-certificates \\
     && rm -rf /var/lib/apt/lists/*
-
-# Install OpenJDK 21 from Adoptium (Eclipse Temurin) with checksum verification
-# SHA256 checksum from: https://github.com/adoptium/temurin21-binaries/releases/tag/jdk-21.0.10%2B7
-RUN mkdir -p /opt/java && \\
-    wget -q https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.10%2B7/OpenJDK21U-jdk_x64_linux_hotspot_21.0.10_7.tar.gz -O /tmp/openjdk21.tar.gz && \\
-    echo "ea3b9bd464d6dd253e9a7accf59f7ccd2a36e4aa69640b7251e3370caef896a4  /tmp/openjdk21.tar.gz" | sha256sum -c - && \\
-    tar -xzf /tmp/openjdk21.tar.gz -C /opt/java && \\
-    rm /tmp/openjdk21.tar.gz
-
-# Set Java environment
-ENV JAVA_HOME=/opt/java/jdk-21.0.10+7
-ENV PATH=$JAVA_HOME/bin:$PATH
 
 # Install Android SDK
 ENV ANDROID_HOME=/opt/android-sdk
@@ -405,32 +314,32 @@ RUN yes | sdkmanager --licenses && \\
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Build arguments
+ARG WEB_APP_URL=http://localhost:8080
+ARG BUILD_TYPE=debug
 
-# Install dependencies
-RUN npm ci
+# Copy the Android project
+COPY android-webview/ .
 
-# Copy source code
-COPY . .
+# Replace the URL in the MainActivity
+RUN sed -i "s|WEB_APP_URL_PLACEHOLDER|${WEB_APP_URL}|g" app/src/main/java/com/videoapp/player/MainActivity.java
 
-# Build argument for API URL
-ARG API_BASE_URL=http://103.74.193.179:5000
-ENV VITE_API_BASE_URL=$API_BASE_URL
-
-# Build web assets
-RUN npm run build
-
-# Note: Android/iOS builds require Capacitor which has been removed from this project.
-# This Dockerfile is kept for reference but Android builds are no longer supported.
+# Build the APK
+RUN chmod +x gradlew && \\
+    if [ "$BUILD_TYPE" = "release" ]; then \\
+        ./gradlew assembleRelease --no-daemon; \\
+    else \\
+        ./gradlew assembleDebug --no-daemon; \\
+    fi
 
 # Output stage
 FROM alpine:latest AS output
-COPY --from=0 /app/dist /output/
+ARG BUILD_TYPE=debug
+COPY --from=0 /app/app/build/outputs/apk/$BUILD_TYPE/*.apk /output/
 '''
 
     def __init__(self, base_dir: str, output_dir: str, platform: str = 'web',
-                 release: bool = False, api_url: str = 'http://103.74.193.179:5000',
+                 release: bool = False, web_url: str = 'http://localhost:8080',
                  no_cache: bool = False):
         """
         初始化构建器 (Initialize builder)
@@ -438,9 +347,9 @@ COPY --from=0 /app/dist /output/
         Args:
             base_dir: 项目根目录 (Project root directory)
             output_dir: 输出目录 (Output directory)
-            platform: 目标平台 (Target platform): web, android, ios
+            platform: 目标平台 (Target platform): web, android
             release: 是否构建发布版 (Whether to build release version)
-            api_url: API服务器地址 (API server URL)
+            web_url: deploy.py部署的Web应用地址 (Web app URL from deploy.py)
             no_cache: 是否禁用缓存 (Whether to disable cache)
         """
         self.base_dir = Path(base_dir)
@@ -448,7 +357,7 @@ COPY --from=0 /app/dist /output/
         self.video_app_dir = self.base_dir / "video-app"
         self.platform = platform
         self.release = release
-        self.api_url = api_url
+        self.web_url = web_url
         self.no_cache = no_cache
         self.image_name = f"video-app-builder-{platform}"
 
@@ -508,15 +417,25 @@ COPY --from=0 /app/dist /output/
         build_type = "release" if self.release else "debug"
         cache_flag = "--no-cache" if self.no_cache else ""
 
-        cmd = (
-            f"docker build "
-            f"{cache_flag} "
-            f"--build-arg API_BASE_URL={self.api_url} "
-            f"--build-arg BUILD_TYPE={build_type} "
-            f"-f {dockerfile_path} "
-            f"-t {self.image_name} "
-            f"."
-        )
+        if self.platform == 'android':
+            cmd = (
+                f"docker build "
+                f"{cache_flag} "
+                f"--build-arg WEB_APP_URL={self.web_url} "
+                f"--build-arg BUILD_TYPE={build_type} "
+                f"-f {dockerfile_path} "
+                f"-t {self.image_name} "
+                f"."
+            )
+        else:
+            cmd = (
+                f"docker build "
+                f"{cache_flag} "
+                f"--build-arg BUILD_TYPE={build_type} "
+                f"-f {dockerfile_path} "
+                f"-t {self.image_name} "
+                f"."
+            )
 
         print_step("执行构建命令...")
         print(f"  {cmd}")
@@ -673,19 +592,19 @@ def clean_build_artifacts(base_dir: str, output_dir: str) -> bool:
     return True
 
 
-def show_build_summary(output_dir: str, platform: str, api_url: str) -> None:
+def show_build_summary(output_dir: str, platform: str, web_url: str) -> None:
     """
     显示构建摘要 (Show build summary)
 
     Args:
         output_dir: 输出目录 (Output directory)
         platform: 目标平台 (Target platform)
-        api_url: API服务器地址 (API server URL)
+        web_url: Web应用地址 (Web app URL)
     """
     print_header("构建摘要")
 
     print(f"  平台: {platform}")
-    print(f"  API地址: {api_url}")
+    print(f"  Web应用地址: {web_url}")
     print(f"  输出目录: {output_dir}")
     print()
 
@@ -699,6 +618,271 @@ def show_build_summary(output_dir: str, platform: str, api_url: str) -> None:
                 print(f"    - {item.relative_to(output_path)} ({size_str})")
 
 
+def create_android_webview_project(base_dir: str, web_url: str) -> bool:
+    """
+    创建Android WebView项目 (Create Android WebView project)
+
+    Args:
+        base_dir: 项目根目录 (Project root directory)
+        web_url: deploy.py部署的Web应用地址 (Web app URL from deploy.py)
+
+    Returns:
+        是否成功 (Whether successful)
+    """
+    print_header("创建Android WebView项目")
+
+    android_dir = Path(base_dir) / "video-app" / "android-webview"
+
+    try:
+        # 创建项目目录结构
+        (android_dir / "app" / "src" / "main" / "java" / "com" / "videoapp" / "player").mkdir(parents=True, exist_ok=True)
+        (android_dir / "app" / "src" / "main" / "res" / "layout").mkdir(parents=True, exist_ok=True)
+        (android_dir / "app" / "src" / "main" / "res" / "values").mkdir(parents=True, exist_ok=True)
+        (android_dir / "app" / "src" / "main" / "res" / "drawable").mkdir(parents=True, exist_ok=True)
+        (android_dir / "gradle" / "wrapper").mkdir(parents=True, exist_ok=True)
+
+        # 创建 settings.gradle
+        with open(android_dir / "settings.gradle", 'w') as f:
+            f.write('rootProject.name = "VideoApp"\ninclude ":app"\n')
+
+        # 创建 build.gradle (root)
+        with open(android_dir / "build.gradle", 'w') as f:
+            f.write('''// Top-level build file
+plugins {
+    id 'com.android.application' version '8.2.0' apply false
+}
+''')
+
+        # 创建 gradle.properties
+        with open(android_dir / "gradle.properties", 'w') as f:
+            f.write('''org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+android.useAndroidX=true
+android.enableJetifier=true
+''')
+
+        # 创建 gradle-wrapper.properties
+        with open(android_dir / "gradle" / "wrapper" / "gradle-wrapper.properties", 'w') as f:
+            f.write('''distributionUrl=https\\://services.gradle.org/distributions/gradle-8.4-bin.zip
+distributionBase=GRADLE_USER_HOME
+distributionPath=wrapper/dists
+zipStorePath=wrapper/dists
+zipStoreBase=GRADLE_USER_HOME
+''')
+
+        # 创建 app/build.gradle
+        with open(android_dir / "app" / "build.gradle", 'w') as f:
+            f.write('''plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.videoapp.player'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.videoapp.player"
+        minSdk 21
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.webkit:webkit:1.8.0'
+}
+''')
+
+        # 创建 AndroidManifest.xml
+        with open(android_dir / "app" / "src" / "main" / "AndroidManifest.xml", 'w') as f:
+            f.write('''<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.VideoApp"
+        android:usesCleartextTraffic="true">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|keyboard|keyboardHidden"
+            android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
+''')
+
+        # 创建 MainActivity.java
+        with open(android_dir / "app" / "src" / "main" / "java" / "com" / "videoapp" / "player" / "MainActivity.java", 'w') as f:
+            f.write(f'''package com.videoapp.player;
+
+import android.os.Bundle;
+import android.webkit.WebChromeClient;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.view.KeyEvent;
+import android.view.View;
+import android.view.WindowManager;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+public class MainActivity extends AppCompatActivity {{
+    private WebView webView;
+    private static final String WEB_APP_URL = "WEB_APP_URL_PLACEHOLDER";
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {{
+        super.onCreate(savedInstanceState);
+
+        // 全屏显示
+        getWindow().setFlags(
+            WindowManager.LayoutParams.FLAG_FULLSCREEN,
+            WindowManager.LayoutParams.FLAG_FULLSCREEN
+        );
+
+        // 隐藏ActionBar
+        if (getSupportActionBar() != null) {{
+            getSupportActionBar().hide();
+        }}
+
+        setContentView(R.layout.activity_main);
+
+        webView = findViewById(R.id.webView);
+        setupWebView();
+        webView.loadUrl(WEB_APP_URL);
+    }}
+
+    private void setupWebView() {{
+        WebSettings settings = webView.getSettings();
+
+        // 启用JavaScript
+        settings.setJavaScriptEnabled(true);
+
+        // 启用DOM存储
+        settings.setDomStorageEnabled(true);
+
+        // 允许文件访问
+        settings.setAllowFileAccess(true);
+
+        // 启用混合内容
+        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+
+        // 设置缓存模式
+        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+
+        // 支持视频播放
+        settings.setMediaPlaybackRequiresUserGesture(false);
+
+        // WebView客户端
+        webView.setWebViewClient(new WebViewClient());
+        webView.setWebChromeClient(new WebChromeClient());
+    }}
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {{
+        if (keyCode == KeyEvent.KEYCODE_BACK && webView.canGoBack()) {{
+            webView.goBack();
+            return true;
+        }}
+        return super.onKeyDown(keyCode, event);
+    }}
+
+    @Override
+    protected void onDestroy() {{
+        if (webView != null) {{
+            webView.destroy();
+        }}
+        super.onDestroy();
+    }}
+}}
+''')
+
+        # 创建 activity_main.xml
+        with open(android_dir / "app" / "src" / "main" / "res" / "layout" / "activity_main.xml", 'w') as f:
+            f.write('''<?xml version="1.0" encoding="utf-8"?>
+<WebView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/webView"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent" />
+''')
+
+        # 创建 strings.xml
+        with open(android_dir / "app" / "src" / "main" / "res" / "values" / "strings.xml", 'w') as f:
+            f.write('''<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">视频播放器</string>
+</resources>
+''')
+
+        # 创建 themes.xml
+        with open(android_dir / "app" / "src" / "main" / "res" / "values" / "themes.xml", 'w') as f:
+            f.write('''<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.VideoApp" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">#0a0a1a</item>
+        <item name="colorPrimary">#1a1a2e</item>
+        <item name="colorPrimaryDark">#0a0a1a</item>
+        <item name="colorAccent">#00d4ff</item>
+    </style>
+</resources>
+''')
+
+        # 创建简单的启动图标 (XML drawable)
+        with open(android_dir / "app" / "src" / "main" / "res" / "drawable" / "ic_launcher.xml", 'w') as f:
+            f.write('''<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#1a1a2e"
+        android:pathData="M0,0h108v108h-108z"/>
+    <path
+        android:fillColor="#00d4ff"
+        android:pathData="M35,30 L35,78 L80,54 Z"/>
+</vector>
+''')
+
+        # 创建 gradlew 脚本
+        with open(android_dir / "gradlew", 'w') as f:
+            f.write('''#!/bin/sh
+exec gradle "$@"
+''')
+        os.chmod(android_dir / "gradlew", 0o755)
+
+        print_success(f"Android WebView项目已创建: {android_dir}")
+        return True
+
+    except Exception as e:
+        print_error(f"创建Android WebView项目失败: {e}")
+        return False
+
+
 def main() -> None:
     """主函数 (Main function)"""
     parser = argparse.ArgumentParser(
@@ -707,21 +891,23 @@ def main() -> None:
         epilog='''
 示例 (Examples):
   python3 docker_build_app.py                              # 构建Web版本
-  python3 docker_build_app.py --platform android           # 构建Android APK
+  python3 docker_build_app.py --platform android           # 构建Android WebView APK
   python3 docker_build_app.py --platform android --release # 构建发布版APK
-  python3 docker_build_app.py --api-url http://myserver:5000  # 自定义API地址
+  python3 docker_build_app.py --web-url http://myserver:8080  # 自定义Web应用地址
   python3 docker_build_app.py --check                      # 仅检查依赖
   python3 docker_build_app.py --clean                      # 清理构建产物
         '''
     )
 
     parser.add_argument('--platform', type=str, default='web',
-                        choices=['web', 'android', 'ios'],
-                        help='目标平台 (Target platform): web, android, ios (默认: web)')
+                        choices=['web', 'android'],
+                        help='目标平台 (Target platform): web, android (默认: web)')
     parser.add_argument('--release', action='store_true',
                         help='构建发布版而非调试版 (Build release instead of debug)')
+    parser.add_argument('--web-url', type=str, default='http://localhost:8080',
+                        help='deploy.py部署的Web应用地址 (Web app URL from deploy.py, 默认: http://localhost:8080)')
     parser.add_argument('--api-url', type=str, default='http://103.74.193.179:5000',
-                        help='API服务器地址 (API server URL)')
+                        help='API服务器地址，用于Web构建 (API server URL for web build)')
     parser.add_argument('--check', action='store_true',
                         help='仅检查依赖，不构建 (Check dependencies only)')
     parser.add_argument('--clean', action='store_true',
@@ -753,10 +939,18 @@ def main() -> None:
     print(f"项目目录: {base_dir}")
     print(f"输出目录: {output_dir}")
     print(f"目标平台: {args.platform}")
-    print(f"API地址: {args.api_url}")
+    if args.platform == 'android':
+        print(f"Web应用地址: {args.web_url}")
+    else:
+        print(f"API地址: {args.api_url}")
 
     # 清理模式
     if args.clean:
+        # 清理android-webview目录
+        android_webview_dir = os.path.join(base_dir, "video-app", "android-webview")
+        if os.path.exists(android_webview_dir):
+            shutil.rmtree(android_webview_dir)
+            print_success("Android WebView项目已清理")
         if clean_build_artifacts(base_dir, output_dir):
             sys.exit(0)
         sys.exit(1)
@@ -770,40 +964,55 @@ def main() -> None:
         print_success("依赖检查完成!")
         sys.exit(0)
 
-    # 配置API (除非跳过)
-    if not args.skip_api_config:
-        api_manager = APIConfigManager(base_dir, args.api_url)
-        if not api_manager.configure_all():
-            print_warning("API配置部分失败，继续构建...")
+    # 根据平台执行不同的构建流程
+    if args.platform == 'android':
+        # 创建Android WebView项目
+        if not create_android_webview_project(base_dir, args.web_url):
+            sys.exit(1)
 
-    # iOS平台提示
-    if args.platform == 'ios':
-        print_warning("iOS构建需要macOS环境和Xcode")
-        print("请在macOS上运行以下命令:")
-        print("  cd video-app")
-        print("  npm run build")
-        print("  npx cap add ios")
-        print("  npx cap sync ios")
-        print("  npx cap open ios")
-        sys.exit(0)
+        # 执行Android构建
+        builder = DockerBuilder(
+            base_dir=base_dir,
+            output_dir=output_dir,
+            platform=args.platform,
+            release=args.release,
+            web_url=args.web_url,
+            no_cache=args.no_cache
+        )
 
-    # 执行构建
-    builder = DockerBuilder(
-        base_dir=base_dir,
-        output_dir=output_dir,
-        platform=args.platform,
-        release=args.release,
-        api_url=args.api_url,
-        no_cache=args.no_cache
-    )
-
-    if builder.build():
-        show_build_summary(output_dir, args.platform, args.api_url)
-        print_header("构建成功! 🎉")
-        sys.exit(0)
+        if builder.build():
+            show_build_summary(output_dir, args.platform, args.web_url)
+            print_header("构建成功! 🎉")
+            print(f"\\n此APK是一个WebView应用，加载地址: {args.web_url}")
+            print("请确保deploy.py已在该地址部署了Web应用。")
+            sys.exit(0)
+        else:
+            print_error("构建失败")
+            sys.exit(1)
     else:
-        print_error("构建失败")
-        sys.exit(1)
+        # Web构建 - 配置API
+        if not args.skip_api_config:
+            api_manager = APIConfigManager(base_dir, args.api_url)
+            if not api_manager.configure_all():
+                print_warning("API配置部分失败，继续构建...")
+
+        # 执行Web构建
+        builder = DockerBuilder(
+            base_dir=base_dir,
+            output_dir=output_dir,
+            platform=args.platform,
+            release=args.release,
+            web_url=args.web_url,
+            no_cache=args.no_cache
+        )
+
+        if builder.build():
+            show_build_summary(output_dir, args.platform, args.api_url)
+            print_header("构建成功! 🎉")
+            sys.exit(0)
+        else:
+            print_error("构建失败")
+            sys.exit(1)
 
 
 if __name__ == '__main__':

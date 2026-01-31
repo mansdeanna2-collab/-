@@ -1,12 +1,9 @@
 # ============================================================================
-# GitHub Actions Workflow: Build Android APK
+# GitHub Actions Workflow: Build Android WebView APK
 # ============================================================================
 #
-# 这个工作流程提供了一种可靠的替代方案来构建 Android APK，
-# 避免了在 Docker 容器中运行 Gradle 构建时的内存和资源问题。
-#
-# This workflow provides a reliable alternative for building Android APK,
-# avoiding memory and resource issues when running Gradle builds in Docker.
+# 这个工作流程构建一个WebView Android应用，用于包装deploy.py部署的Web应用。
+# This workflow builds a WebView Android app that wraps the deploy.py web application.
 #
 # 使用方法 (Usage):
 #   1. 自动触发: 推送到 main 分支或创建 Pull Request
@@ -14,7 +11,7 @@
 #
 # ============================================================================
 
-name: Build Android APK
+name: Build Android WebView APK
 
 on:
   # 手动触发 (Manual trigger)
@@ -28,13 +25,18 @@ on:
         options:
           - debug
           - release
+      web_url:
+        description: 'Web application URL (from deploy.py)'
+        required: true
+        default: 'http://localhost:8080'
+        type: string
 
   # 推送到 main 分支时自动触发 (Auto trigger on push to main)
   push:
     branches:
       - main
     paths:
-      - 'video-app/**'
+      - 'docker_build_app.py'
       - '.github/workflows/build-apk.yml'
 
   # Pull Request 时触发 (Trigger on PR)
@@ -42,7 +44,7 @@ on:
     branches:
       - main
     paths:
-      - 'video-app/**'
+      - 'docker_build_app.py'
       - '.github/workflows/build-apk.yml'
 
 # 限制并发执行 (Limit concurrency)
@@ -56,7 +58,7 @@ permissions:
 
 jobs:
   build-apk:
-    name: Build Android APK
+    name: Build Android WebView APK
     runs-on: ubuntu-latest
 
     # 设置超时时间 (Set timeout)
@@ -74,70 +76,63 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # 设置 Node.js 环境 (Setup Node.js)
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: 'video-app/package-lock.json'
+      # 设置 Android SDK (Setup Android SDK)
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
-      # 安装 npm 依赖 (Install npm dependencies)
-      - name: Install npm dependencies
-        working-directory: video-app
-        run: npm ci
-
-      # 构建 Web 应用 (Build web application)
-      - name: Build web application
-        working-directory: video-app
-        run: npm run build
-
-      # 添加 Android 平台 (Add Android platform)
-      - name: Add Android platform
-        working-directory: video-app
-        run: npx cap add android
-
-      # 同步 Capacitor (Sync Capacitor)
-      - name: Sync Capacitor
-        working-directory: video-app
-        run: npx cap sync android
-
-      # 配置 Gradle (Configure Gradle)
-      - name: Configure Gradle
-        working-directory: video-app/android
-        run: |
-          echo "# Gradle 配置 (Gradle Configuration)" > gradle.properties
-          echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8" >> gradle.properties
-          echo "org.gradle.parallel=true" >> gradle.properties
-          echo "org.gradle.caching=true" >> gradle.properties
-          echo "android.useAndroidX=true" >> gradle.properties
-          echo "android.enableJetifier=true" >> gradle.properties
-
-      # 确定构建类型 (Determine build type)
-      - name: Determine build type
-        id: build-type
+      # 确定构建参数 (Determine build parameters)
+      - name: Determine build parameters
+        id: params
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "type=${{ github.event.inputs.build_type }}" >> $GITHUB_OUTPUT
+            echo "web_url=${{ github.event.inputs.web_url }}" >> $GITHUB_OUTPUT
             echo "task=assemble${{ github.event.inputs.build_type == 'release' && 'Release' || 'Debug' }}" >> $GITHUB_OUTPUT
           else
             echo "type=debug" >> $GITHUB_OUTPUT
+            echo "web_url=http://localhost:8080" >> $GITHUB_OUTPUT
             echo "task=assembleDebug" >> $GITHUB_OUTPUT
           fi
 
+      # 创建 Android WebView 项目 (Create Android WebView project)
+      - name: Create Android WebView project
+        run: |
+          python3 docker_build_app.py --platform android --web-url "${{ steps.params.outputs.web_url }}" --check || true
+          # 直接使用Python创建项目结构
+          python3 -c "
+          import sys
+          sys.path.insert(0, '.')
+          from docker_build_app import create_android_webview_project
+          create_android_webview_project('.', '${{ steps.params.outputs.web_url }}')
+          "
+
+      # 替换 URL 占位符 (Replace URL placeholder)
+      - name: Configure Web URL
+        working-directory: video-app/android-webview
+        run: |
+          sed -i 's|WEB_APP_URL_PLACEHOLDER|${{ steps.params.outputs.web_url }}|g' app/src/main/java/com/videoapp/player/MainActivity.java
+          cat app/src/main/java/com/videoapp/player/MainActivity.java | grep "WEB_APP_URL"
+
+      # 设置 Gradle (Setup Gradle)
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.4'
+
       # 构建 APK (Build APK)
       - name: Build APK
-        working-directory: video-app/android
+        working-directory: video-app/android-webview
         run: |
+          gradle wrapper --gradle-version 8.4
           chmod +x gradlew
-          ./gradlew ${{ steps.build-type.outputs.task }} --no-daemon --stacktrace
+          ./gradlew ${{ steps.params.outputs.task }} --no-daemon --stacktrace
 
       # 上传 APK 构建产物 (Upload APK artifact)
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: video-app-${{ steps.build-type.outputs.type }}
-          path: video-app/android/app/build/outputs/apk/${{ steps.build-type.outputs.type }}/app-${{ steps.build-type.outputs.type }}.apk
+          name: video-app-webview-${{ steps.params.outputs.type }}
+          path: video-app/android-webview/app/build/outputs/apk/${{ steps.params.outputs.type }}/*.apk
           retention-days: 30
 
       # 显示构建信息 (Display build info)
@@ -147,7 +142,10 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| 项目 | 值 |" >> $GITHUB_STEP_SUMMARY
           echo "|------|-----|" >> $GITHUB_STEP_SUMMARY
-          echo "| 构建类型 | ${{ steps.build-type.outputs.type }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| APK 路径 | video-app/android/app/build/outputs/apk/${{ steps.build-type.outputs.type }}/app-${{ steps.build-type.outputs.type }}.apk |" >> $GITHUB_STEP_SUMMARY
+          echo "| 构建类型 | ${{ steps.params.outputs.type }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Web应用地址 | ${{ steps.params.outputs.web_url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| APK类型 | WebView包装应用 |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "APK 已上传为 artifact，可在 Actions 页面下载。" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**注意**: 此APK是一个WebView应用，需要配合deploy.py部署的Web服务使用。" >> $GITHUB_STEP_SUMMARY

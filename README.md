@@ -1,6 +1,6 @@
 # 视频播放器应用 (Video Player App)
 
-一个现代化的视频播放器应用，支持 Docker 一键部署。
+一个现代化的视频播放器应用，支持 Docker 一键部署和 Android APK 打包。
 
 ## 项目结构
 
@@ -22,6 +22,7 @@
 │   ├── video_database.py   # 数据库模块 (MySQL/SQLite)
 │   └── video_collector.py  # 视频采集脚本
 ├── deploy.py           # Docker自动部署脚本
+├── docker_build_app.py # 应用打包脚本 (Web/Android)
 └── docker-compose.yml  # Docker Compose配置
 ```
 
@@ -29,6 +30,7 @@
 
 - ✅ Vue 3 + Vite 现代化前端架构
 - ✅ 支持 H5 网页访问
+- ✅ 支持 Android WebView APK 打包
 - ✅ 视频分类和搜索
 - ✅ 视频播放器支持多集
 - ✅ 响应式设计，适配手机和平板
@@ -163,6 +165,48 @@ docker compose logs -f
 # 停止
 docker compose down
 ```
+
+## 📱 Android APK 打包
+
+使用 `docker_build_app.py` 脚本可以构建 Android WebView APK，该 APK 包装了 deploy.py 部署的 Web 应用。
+
+### 使用方法
+
+```bash
+# 构建 Web 版本
+python3 docker_build_app.py
+
+# 构建 Android WebView APK (使用默认地址 http://localhost:8080)
+python3 docker_build_app.py --platform android
+
+# 构建 Android APK 并指定 Web 应用地址
+python3 docker_build_app.py --platform android --web-url http://your-server:8080
+
+# 构建发布版 APK
+python3 docker_build_app.py --platform android --release --web-url http://your-server:8080
+
+# 检查依赖
+python3 docker_build_app.py --check
+
+# 清理构建产物
+python3 docker_build_app.py --clean
+```
+
+### 构建流程
+
+1. 首先使用 `deploy.py` 部署 Web 应用到服务器
+2. 然后使用 `docker_build_app.py --platform android --web-url http://your-server:8080` 构建 APK
+3. APK 会在 `build-output/android/` 目录生成
+
+### GitHub Actions 构建
+
+也可以使用 GitHub Actions 自动构建:
+
+1. 访问仓库的 Actions 页面
+2. 选择 "Build Android WebView APK" 工作流程
+3. 点击 "Run workflow" 按钮
+4. 输入 Web 应用地址和构建类型
+5. 下载构建完成的 APK
 
 ## API 接口
 
