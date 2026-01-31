@@ -178,6 +178,44 @@ python3 docker_build_apk.py --use-actions   # Show GitHub Actions instructions
 - `build-output/android/video-app-debug.apk` - Android APK
 - `build-output/ios/` - iOS 项目
 
+### 导出项目后构建 APK
+
+使用 `--project-only` 选项导出 Android 项目后，可以通过以下三种方法构建 APK：
+
+#### 方法 1: 使用 Android Studio
+
+1. 用 Android Studio 打开 `build-output/android/android-project` 目录
+2. 等待 Gradle 同步完成
+3. 点击 **Build > Build Bundle(s) / APK(s) > Build APK(s)**
+
+#### 方法 2: 使用 GitHub Actions (推荐)
+
+1. 将代码推送到 GitHub
+2. 在 Actions 页面触发 **Build Android APK** 工作流程
+3. 下载构建完成的 APK
+
+#### 方法 3: 使用构建脚本 (推荐)
+
+仓库根目录提供了 `build_apk.sh` 脚本，可用于完成 APK 构建：
+
+```bash
+cd build-output/android/android-project
+# 将仓库根目录的构建脚本复制到当前目录
+cp ../../../build_apk.sh .
+./build_apk.sh             # 调试版
+# 或
+./build_apk.sh --release   # 发布版
+```
+
+#### 方法 4: 直接使用 Gradle
+
+```bash
+cd build-output/android/android-project
+./gradlew assembleDebug    # 调试版
+# 或
+./gradlew assembleRelease  # 发布版
+```
+
 ## 🆕 GitHub Actions 构建 APK (推荐替代方案)
 
 如果 Docker 构建 APK 失败，推荐使用 GitHub Actions 构建：
