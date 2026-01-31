@@ -16,14 +16,15 @@ export const APP_CONFIG = {
 }
 
 // API 配置
-// API base URL can be configured via VITE_API_BASE_URL environment variable
+// Default API URL - the actual URL can be configured via vite.config.js proxy
+// or through globalData.apiBaseUrl in App.vue for uni-app
+const DEFAULT_API_BASE_URL = 'http://103.74.193.179:5000'
+
 const getApiBaseUrl = () => {
-  // Check for Vite environment variable first
-  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL
-  }
-  // Default API URL
-  return 'http://103.74.193.179:5000'
+  // Return the default API URL
+  // In H5/Vite mode, the proxy is configured in vite.config.js
+  // In uni-app mode, API base URL can be set via App.vue globalData
+  return DEFAULT_API_BASE_URL
 }
 
 export const API_CONFIG = {
