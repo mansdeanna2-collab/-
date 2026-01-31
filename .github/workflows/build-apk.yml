@@ -73,7 +73,6 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: 'gradle'
 
       # 设置 Node.js 环境 (Setup Node.js)
       - name: Set up Node.js
