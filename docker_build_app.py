@@ -379,15 +379,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \\
     && rm -rf /var/lib/apt/lists/*
 
 # Install OpenJDK 21 from Adoptium (Eclipse Temurin) with checksum verification
-# SHA256 checksum from: https://github.com/adoptium/temurin21-binaries/releases/tag/jdk-21.0.5%2B11
+# SHA256 checksum from: https://github.com/adoptium/temurin21-binaries/releases/tag/jdk-21.0.10%2B7
 RUN mkdir -p /opt/java && \\
-    wget -q https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.5%2B11/OpenJDK21U-jdk_x64_linux_hotspot_21.0.5_11.tar.gz -O /tmp/openjdk21.tar.gz && \\
-    echo "3c654d98404c073b8a7e66bffb27f4ae3e7ede47d13284c132d40a83144bfd8c  /tmp/openjdk21.tar.gz" | sha256sum -c - && \\
+    wget -q https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.10%2B7/OpenJDK21U-jdk_x64_linux_hotspot_21.0.10_7.tar.gz -O /tmp/openjdk21.tar.gz && \\
+    echo "ea3b9bd464d6dd253e9a7accf59f7ccd2a36e4aa69640b7251e3370caef896a4  /tmp/openjdk21.tar.gz" | sha256sum -c - && \\
     tar -xzf /tmp/openjdk21.tar.gz -C /opt/java && \\
     rm /tmp/openjdk21.tar.gz
 
 # Set Java environment
-ENV JAVA_HOME=/opt/java/jdk-21.0.5+11
+ENV JAVA_HOME=/opt/java/jdk-21.0.10+7
 ENV PATH=$JAVA_HOME/bin:$PATH
 
 # Install Android SDK
