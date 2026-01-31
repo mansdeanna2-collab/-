@@ -78,7 +78,7 @@ export function formatImageUrl(url) {
         return trimmed // Already encoded
       }
       return encodeURI(trimmed)
-    } catch (e) {
+    } catch {
       // If decodeURI fails, URL might be malformed, return as-is
       return trimmed
     }
@@ -106,7 +106,7 @@ export function formatImageUrl(url) {
   // Otherwise, treat as regular URL and encode
   try {
     return encodeURI(trimmed)
-  } catch (e) {
+  } catch {
     return trimmed
   }
 }
@@ -124,7 +124,7 @@ export function safeEncodeURI(url) {
       return url // Already encoded
     }
     return encodeURI(url)
-  } catch (e) {
+  } catch {
     return url
   }
 }
@@ -226,7 +226,7 @@ export async function loadImageWithBase64Detection(imgElement, url) {
 
     // Not recognized as base64, try using URL directly
     imgElement.src = url
-  } catch (error) {
+  } catch {
     // On fetch error (CORS, network, etc.), fall back to direct URL loading
     // The browser might be able to load it even if fetch fails
     imgElement.src = url

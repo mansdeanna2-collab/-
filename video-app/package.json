@@ -7,6 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "lint": "eslint src --ext .vue,.js,.ts",
+    "lint:fix": "eslint src --ext .vue,.js,.ts --fix",
+    "type-check": "vue-tsc --noEmit",
     "postinstall": "bash scripts/postinstall.sh",
     "cap:add:android": "npx cap add android",
     "cap:add:ios": "npx cap add ios",
@@ -15,18 +18,25 @@
     "cap:open:ios": "npx cap open ios"
   },
   "dependencies": {
-    "vue": "^3.5.27",
-    "vue-router": "^4.6.4",
+    "@capacitor/core": "^7.4.5",
     "axios": "^1.13.3",
-    "@capacitor/core": "^7.4.5"
+    "vue": "^3.5.27",
+    "vue-router": "^4.6.4"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^6.0.3",
-    "vite": "^7.3.1",
-    "@capacitor/cli": "^7.4.5",
     "@capacitor/android": "^7.4.5",
+    "@capacitor/cli": "^7.4.5",
     "@capacitor/ios": "^7.4.5",
-    "patch-package": "^8.0.0"
+    "@eslint/js": "^9.39.2",
+    "@vitejs/plugin-vue": "^6.0.3",
+    "@vue/tsconfig": "^0.8.1",
+    "eslint": "^9.39.2",
+    "eslint-plugin-vue": "^10.7.0",
+    "patch-package": "^8.0.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.54.0",
+    "vite": "^7.3.1",
+    "vue-tsc": "^3.2.4"
   },
   "overrides": {
     "tar": "^7.5.7"

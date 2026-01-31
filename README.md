@@ -36,6 +36,43 @@
 - ✅ REST API 接口
 - ✅ 支持 MySQL 和 SQLite 数据库
 - ✅ Docker 一键自动部署 (Ubuntu 22)
+- ✅ TypeScript 支持 (TypeScript support)
+- ✅ ESLint 代码质量检查 (ESLint code quality checking)
+
+## 🔧 代码质量工具 (Code Quality Tools)
+
+### 前端代码检查 (Frontend Linting)
+
+项目使用 ESLint 和 TypeScript 来保证代码质量。
+
+```bash
+cd video-app
+
+# 运行代码检查 (Run linting)
+npm run lint
+
+# 自动修复可修复的问题 (Auto-fix fixable issues)
+npm run lint:fix
+
+# 运行 TypeScript 类型检查 (Run TypeScript type checking)
+npm run type-check
+```
+
+### 后端代码检查 (Backend Linting)
+
+项目配置了 flake8 和 mypy 用于 Python 代码质量检查。
+
+```bash
+# 安装检查工具 (Install linting tools)
+pip install flake8 mypy
+
+# 运行 flake8 检查 (Run flake8 check)
+flake8 api/ tools/ deploy.py
+
+# 运行类型检查 (Run type check)
+mypy api/ tools/ --ignore-missing-imports
+```
+
 
 ## 🚀 Docker 一键部署 (推荐)
 
