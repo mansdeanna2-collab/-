@@ -18,7 +18,7 @@ export const APP_CONFIG = {
 // API 配置
 // Default API URL - the actual URL can be configured via vite.config.js proxy
 // or through globalData.apiBaseUrl in App.vue for uni-app
-const DEFAULT_API_BASE_URL = 'http://103.74.193.179:5000'
+const DEFAULT_API_BASE_URL = 'http://localhost:5000'
 
 const getApiBaseUrl = () => {
   // Return the default API URL

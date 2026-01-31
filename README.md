@@ -364,7 +364,7 @@ export MYSQL_PASSWORD=your_password
 
 ## API 服务器配置
 
-前端应用需要连接后端 API 服务器。默认配置连接到 `http://103.74.193.179:5000`。
+前端应用需要连接后端 API 服务器。默认配置连接到 `http://localhost:5000`。
 
 ### 配置自定义 API 地址
 
