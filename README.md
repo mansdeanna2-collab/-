@@ -6,14 +6,19 @@
 
 ```
 ├── video-app/          # 前端 Vue.js 应用
-│   ├── src/
-│   │   ├── api/        # API 接口封装
+│   ├── src/            # Vite/Vue 源码
+│   │   ├── api/        # API 接口封装 (axios)
 │   │   ├── components/ # Vue 组件
 │   │   ├── views/      # 页面视图
 │   │   ├── router/     # 路由配置
 │   │   └── assets/     # 静态资源
+│   ├── pages/          # uni-app 页面 (HBuilderX)
+│   ├── api/            # uni.request API (HBuilderX)
+│   ├── static/         # 静态资源 (HBuilderX)
+│   ├── manifest.json   # HBuilderX 配置
+│   ├── pages.json      # uni-app 路由配置
 │   ├── package.json    # 依赖配置
-│   └── capacitor.config.json  # 移动端配置
+│   └── capacitor.config.json  # Capacitor 移动端配置
 ├── api/                # 后端 API 服务
 │   ├── api_server.py   # Flask API 服务器
 │   ├── Dockerfile      # API容器配置
@@ -30,6 +35,7 @@
 - ✅ Vue 3 + Vite 现代化前端架构
 - ✅ 支持 H5 网页访问
 - ✅ 支持打包为 Android/iOS App (Capacitor)
+- ✅ **支持 HBuilderX 打包 APK** (uni-app 兼容)
 - ✅ 视频分类和搜索
 - ✅ 视频播放器支持多集
 - ✅ 响应式设计，适配手机和平板
@@ -277,7 +283,7 @@ cd build-output/android/android-project
 
 ## 手动打包移动端 App
 
-### Android
+### Android (Capacitor)
 
 ```bash
 cd video-app
@@ -287,7 +293,7 @@ npm run cap:sync                 # 同步构建文件
 npm run cap:open:android         # 打开 Android Studio
 ```
 
-### iOS
+### iOS (Capacitor)
 
 ```bash
 cd video-app
@@ -296,6 +302,38 @@ npm run cap:add:ios              # 添加 iOS 平台 (首次)
 npm run cap:sync                 # 同步构建文件
 npm run cap:open:ios             # 打开 Xcode
 ```
+
+## 📱 HBuilderX 打包 APK (推荐)
+
+项目已适配 HBuilderX/uni-app，可直接使用 HBuilderX 云打包生成 APK。
+
+### 快速开始
+
+1. 下载安装 [HBuilderX](https://www.dcloud.io/hbuilderx.html)
+2. 打开项目的 `video-app` 目录
+3. 在 `manifest.json` 中配置 AppID
+4. 点击 **发行** → **原生 App-云打包**
+5. 配置打包选项，开始打包
+6. 下载生成的 APK 文件
+
+### HBuilderX 项目结构
+
+```
+video-app/
+├── manifest.json          # HBuilderX 核心配置
+├── pages.json             # 页面路由配置
+├── main.hbuilder.js       # uni-app 入口
+├── App.hbuilder.vue       # uni-app 根组件
+├── pages/                 # uni-app 页面
+│   ├── index/index.vue    # 首页
+│   ├── player/player.vue  # 播放页
+│   ├── category/category.vue
+│   └── search/search.vue
+├── api/                   # uni.request API
+└── static/                # 静态资源
+```
+
+详细文档请参考 [HBuilderX 打包指南](video-app/HBUILDERX_GUIDE.md)
 
 ## API 接口
 

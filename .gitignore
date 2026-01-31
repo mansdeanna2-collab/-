@@ -45,6 +45,8 @@ Thumbs.db
 !tsconfig.json
 !tsconfig.node.json
 !eslint.config.js
+!manifest.json
+!pages.json
 
 # Logs
 *.log
