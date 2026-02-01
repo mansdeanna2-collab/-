@@ -1,79 +1,89 @@
 <template>
   <div class="home">
-    <!-- Header -->
+    <!-- Header with App Name and Search -->
     <header class="header">
-      <h1 class="logo">🎬 视频播放器</h1>
-      <p class="stats" v-if="statistics.total_videos">
-        共 {{ statistics.total_videos }} 个视频 | {{ statistics.total_plays }} 次播放
-      </p>
+      <div class="header-content">
+        <h1 class="logo">🎬 悟空视频</h1>
+        <div class="search-box">
+          <input
+            v-model="searchKeyword"
+            type="text"
+            placeholder="搜索视频..."
+            @input="onSearchInput"
+            @keyup.enter="handleSearch"
+          />
+          <button class="search-btn" @click="handleSearch">🔍</button>
+        </div>
+        <div class="header-spacer"></div>
+      </div>
     </header>
 
-    <!-- Controls -->
-    <div class="controls">
-      <div class="search-box">
-        <input
-          v-model="searchKeyword"
-          type="text"
-          placeholder="搜索视频..."
-          @input="onSearchInput"
-          @keyup.enter="handleSearch"
-        />
-        <button class="search-btn" @click="handleSearch">🔍</button>
-      </div>
-      
-      <select v-model="selectedCategory" @change="handleCategoryChange">
-        <option value="">全部分类</option>
-        <option v-for="cat in categories" :key="cat.video_category" :value="cat.video_category">
-          {{ cat.video_category }} ({{ cat.video_count }})
-        </option>
-      </select>
+    <!-- Category Tabs -->
+    <div class="category-tabs">
+      <button
+        v-for="(cat, index) in displayCategories"
+        :key="cat.video_category || index"
+        :class="['tab-btn', { active: selectedCategory === cat.video_category }]"
+        @click="handleCategoryClick(cat.video_category)"
+      >
+        {{ cat.label || cat.video_category }}
+      </button>
     </div>
 
-    <!-- Skeleton Loading State -->
-    <div v-if="loading" class="video-grid">
-      <VideoCardSkeleton v-for="n in 8" :key="'skeleton-' + n" />
+    <!-- Loading State -->
+    <div v-if="loading" class="loading-state">
+      <div class="loading-spinner"></div>
+      <p>加载中...</p>
     </div>
 
     <!-- Error State -->
     <div v-else-if="error" class="error-state">
       <div class="error-icon">⚠️</div>
       <p>{{ errorMessage }}</p>
-      <button class="btn btn-primary" @click="loadVideos">重试</button>
+      <button class="btn btn-primary" @click="init">重试</button>
     </div>
 
-    <!-- Empty State -->
-    <div v-else-if="videos.length === 0" class="empty-state">
-      <div class="empty-icon">📭</div>
-      <p>暂无视频</p>
-    </div>
-
-    <!-- Video Grid -->
-    <div v-else class="video-grid">
-      <VideoCard
-        v-for="video in videos"
-        :key="video.video_id"
-        :video="video"
+    <!-- Main Content -->
+    <div v-else class="main-content">
+      <!-- Carousel Banner -->
+      <Carousel 
+        v-if="carouselVideos.length > 0"
+        :videos="carouselVideos"
         @click="playVideo"
       />
+
+      <!-- Category Sections -->
+      <CategorySection
+        v-for="cat in categorySections"
+        :key="cat.category"
+        :title="cat.category"
+        :videos="cat.videos"
+        @play="playVideo"
+        @refresh="refreshCategory(cat.category)"
+        @more="viewMoreCategory(cat.category)"
+      />
+
+      <!-- Load More (for when viewing a single category or search results) -->
+      <div v-if="isFilteredView && hasMore && !loadingMore" class="load-more">
+        <button 
+          class="btn btn-secondary" 
+          @click="loadMore"
+          :disabled="loadingMore"
+        >
+          <span v-if="loadingMore" class="loading-spinner small"></span>
+          {{ loadingMore ? '加载中...' : '加载更多' }}
+        </button>
+      </div>
     </div>
 
-    <!-- Load More -->
-    <div v-if="hasMore && !loading" class="load-more">
-      <button 
-        class="btn btn-secondary" 
-        @click="loadMore"
-        :disabled="loadingMore"
-      >
-        <span v-if="loadingMore" class="loading-spinner small"></span>
-        {{ loadingMore ? '加载中...' : '加载更多' }}
-      </button>
-    </div>
+    <!-- Bottom spacing for nav bar -->
+    <div class="bottom-spacer"></div>
   </div>
 </template>
 
 <script>
-import VideoCard from '@/components/VideoCard.vue'
-import VideoCardSkeleton from '@/components/VideoCardSkeleton.vue'
+import Carousel from '@/components/Carousel.vue'
+import CategorySection from '@/components/CategorySection.vue'
 import { videoApi } from '@/api'
 import { 
   saveScrollPosition, 
@@ -85,12 +95,10 @@ import {
 export default {
   name: 'HomeView',
   components: {
-    VideoCard,
-    VideoCardSkeleton
+    Carousel,
+    CategorySection
   },
   beforeRouteLeave(to, from, next) {
-    // Also save scroll position when leaving via router navigation
-    // This ensures position is saved even in scenarios where deactivated isn't called first
     if (to.name === 'player') {
       const routePath = from.fullPath
       const scrollY = getCurrentScrollPosition()
@@ -100,9 +108,9 @@ export default {
   },
   data() {
     return {
-      videos: [],
       categories: [],
-      statistics: {},
+      categoryVideos: {}, // { category: videos[] }
+      carouselVideos: [],
       searchKeyword: '',
       selectedCategory: '',
       loading: true,
@@ -112,31 +120,60 @@ export default {
       page: 1,
       limit: 20,
       hasMore: true,
-      // Flag to track if we should restore scroll position
       shouldRestoreScroll: false,
-      // Debounce timeout for search
-      searchDebounceTimer: null
+      searchDebounceTimer: null,
+      // For filtered view (search or single category)
+      filteredVideos: []
+    }
+  },
+  computed: {
+    // Get display categories (first 5 including "推荐")
+    displayCategories() {
+      const tabs = [{ video_category: '', label: '推荐' }]
+      const catList = this.categories.slice(0, 4).map(c => ({
+        video_category: c.video_category,
+        label: c.video_category
+      }))
+      return [...tabs, ...catList]
+    },
+    // Category sections for home view
+    categorySections() {
+      if (this.isFilteredView) {
+        return []
+      }
+      return this.categories
+        .filter(cat => this.categoryVideos[cat.video_category]?.length > 0)
+        .map(cat => ({
+          category: cat.video_category,
+          videos: this.categoryVideos[cat.video_category] || []
+        }))
+    },
+    // Check if we're in filtered view (search or specific category)
+    isFilteredView() {
+      return this.searchKeyword.trim() !== '' || this.selectedCategory !== ''
     }
   },
   watch: {
     '$route'(to, from) {
-      // When returning from player, mark that we should restore scroll and skip reloading
-      // The data is already cached via keep-alive
       if (from.name === 'player' && (to.name === 'home' || to.name === 'category' || to.name === 'search')) {
         this.shouldRestoreScroll = true
-        // Update selectedCategory to match the route without reloading videos
         if (to.name === 'category') {
           this.selectedCategory = to.params.category || ''
         }
-        return // Skip loadVideos() - data is already in keep-alive cache
+        return
       }
       
       if (to.name === 'category') {
         this.selectedCategory = to.params.category || ''
-        this.loadVideos()
+        this.loadFilteredVideos()
       } else if (to.name === 'search') {
         this.searchKeyword = to.query.q || ''
         this.handleSearch()
+      } else if (to.name === 'home') {
+        this.selectedCategory = ''
+        this.searchKeyword = ''
+        // Reload home view
+        this.init()
       }
     }
   },
@@ -144,20 +181,12 @@ export default {
     this.init()
   },
   activated() {
-    // Restore scroll position when component is activated (from keep-alive cache)
-    // Use robust restoration with multiple attempts for app environments
     if (this.shouldRestoreScroll) {
       this.shouldRestoreScroll = false
-      // Get the route path to use as key
       const routePath = this.$route.fullPath
       
-      // Only restore if we have a saved position for this route
       if (hasScrollPosition(routePath)) {
-        // Use nextTick to ensure DOM is ready, then restore with retry mechanism
-        // The initialDelay and extra attempts help with mobile browsers and WebViews
-        // where rendering may be delayed after keep-alive reactivation
         this.$nextTick(() => {
-          // Use requestAnimationFrame for better timing with browser paint cycle
           requestAnimationFrame(() => {
             restoreScrollPosition(routePath, { 
               initialDelay: 0, 
@@ -169,13 +198,11 @@ export default {
     }
   },
   deactivated() {
-    // Save scroll position when component is deactivated (before navigating away)
     const routePath = this.$route.fullPath
     const scrollY = getCurrentScrollPosition()
     saveScrollPosition(routePath, scrollY)
   },
   beforeUnmount() {
-    // Clean up debounce timer
     if (this.searchDebounceTimer) {
       clearTimeout(this.searchDebounceTimer)
     }
@@ -189,39 +216,79 @@ export default {
         this.searchKeyword = this.$route.query.q || ''
       }
       
-      await Promise.all([
-        this.loadVideos(),
-        this.loadCategories(),
-        this.loadStatistics()
-      ])
-    },
-    
-    async loadVideos() {
       this.loading = true
       this.error = false
+      
+      try {
+        await this.loadCategories()
+        
+        if (this.isFilteredView) {
+          await this.loadFilteredVideos()
+        } else {
+          await this.loadHomeData()
+        }
+      } catch (e) {
+        this.error = true
+        this.errorMessage = '加载失败，请稍后重试'
+        console.error('Init error:', e)
+      } finally {
+        this.loading = false
+      }
+    },
+    
+    async loadCategories() {
+      try {
+        const result = await videoApi.getCategories()
+        this.categories = result.data || result || []
+      } catch (e) {
+        console.error('Load categories error:', e)
+      }
+    },
+    
+    async loadHomeData() {
+      // Load carousel videos (top videos)
+      try {
+        const topResult = await videoApi.getTopVideos(5)
+        this.carouselVideos = topResult.data || topResult || []
+      } catch (e) {
+        console.error('Load top videos error:', e)
+      }
+      
+      // Load videos for each category (first 5 categories, 5 videos each)
+      const categoriesToLoad = this.categories.slice(0, 5)
+      
+      for (const cat of categoriesToLoad) {
+        try {
+          const result = await videoApi.getVideosByCategory(cat.video_category, 5)
+          this.categoryVideos[cat.video_category] = result.data || result || []
+        } catch (e) {
+          console.error(`Load category ${cat.video_category} error:`, e)
+          this.categoryVideos[cat.video_category] = []
+        }
+      }
+    },
+    
+    async loadFilteredVideos() {
+      this.loading = true
       this.page = 1
       
       try {
-        const params = {
-          limit: this.limit,
-          offset: 0
-        }
-        
         let result
         if (this.searchKeyword) {
           result = await videoApi.searchVideos(this.searchKeyword, this.limit)
         } else if (this.selectedCategory) {
           result = await videoApi.getVideosByCategory(this.selectedCategory, this.limit)
-        } else {
-          result = await videoApi.getVideos(params)
         }
         
-        this.videos = result.data || result || []
-        this.hasMore = this.videos.length >= this.limit
+        this.filteredVideos = result?.data || result || []
+        this.hasMore = this.filteredVideos.length >= this.limit
+        
+        // Update category sections to show filtered results
+        if (this.selectedCategory) {
+          this.categoryVideos = { [this.selectedCategory]: this.filteredVideos }
+        }
       } catch (e) {
-        this.error = true
-        this.errorMessage = '加载视频失败，请稍后重试'
-        console.error('Load videos error:', e)
+        console.error('Load filtered videos error:', e)
       } finally {
         this.loading = false
       }
@@ -237,26 +304,17 @@ export default {
       try {
         let result
         if (this.searchKeyword) {
-          // Use offset pagination for search
           result = await videoApi.searchVideos(this.searchKeyword, this.limit, offset)
-          const newVideos = result.data || result || []
-          this.videos = [...this.videos, ...newVideos]
-          this.hasMore = newVideos.length >= this.limit
         } else if (this.selectedCategory) {
-          // Use offset pagination for category
           result = await videoApi.getVideosByCategory(this.selectedCategory, this.limit, offset)
-          const newVideos = result.data || result || []
-          this.videos = [...this.videos, ...newVideos]
-          this.hasMore = newVideos.length >= this.limit
-        } else {
-          const params = {
-            limit: this.limit,
-            offset: offset
-          }
-          result = await videoApi.getVideos(params)
-          const newVideos = result.data || result || []
-          this.videos = [...this.videos, ...newVideos]
-          this.hasMore = newVideos.length >= this.limit
+        }
+        
+        const newVideos = result?.data || result || []
+        this.filteredVideos = [...this.filteredVideos, ...newVideos]
+        this.hasMore = newVideos.length >= this.limit
+        
+        if (this.selectedCategory) {
+          this.categoryVideos[this.selectedCategory] = this.filteredVideos
         }
       } catch (e) {
         console.error('Load more error:', e)
@@ -265,63 +323,57 @@ export default {
       }
     },
     
-    async loadCategories() {
-      try {
-        const result = await videoApi.getCategories()
-        this.categories = result.data || result || []
-      } catch (e) {
-        console.error('Load categories error:', e)
-      }
-    },
-    
-    async loadStatistics() {
-      try {
-        const result = await videoApi.getStatistics()
-        this.statistics = result.data || result || {}
-      } catch (e) {
-        console.error('Load statistics error:', e)
+    handleCategoryClick(category) {
+      this.selectedCategory = category
+      this.searchKeyword = ''
+      
+      if (category) {
+        this.$router.push({ name: 'category', params: { category } })
+      } else {
+        this.$router.push({ name: 'home' })
       }
     },
     
     handleSearch() {
       if (this.searchKeyword.trim()) {
         this.$router.push({ name: 'search', query: { q: this.searchKeyword } })
+        this.loadFilteredVideos()
       }
-      this.loadVideos()
     },
     
-    handleCategoryChange() {
-      if (this.selectedCategory) {
-        this.$router.push({ name: 'category', params: { category: this.selectedCategory } })
-      } else {
-        this.$router.push({ name: 'home' })
-      }
-      this.loadVideos()
-    },
-    
-    // Debounced search input handler - searches after 500ms of no typing
     onSearchInput() {
       if (this.searchDebounceTimer) {
         clearTimeout(this.searchDebounceTimer)
       }
-      // Only trigger debounced search if there's actually a search keyword
+      
       if (this.searchKeyword.trim()) {
         this.searchDebounceTimer = setTimeout(() => {
           this.handleSearch()
         }, 500)
       } else {
-        // When search input is cleared, reset to initial state
-        // Debounce this too to avoid rapid reloads while user is still typing/deleting
         this.searchDebounceTimer = setTimeout(() => {
           if (!this.searchKeyword.trim()) {
-            // Navigate back to home view if on search page
             if (this.$route.name === 'search') {
               this.$router.push({ name: 'home' })
             }
-            this.loadVideos()
           }
         }, 500)
       }
+    },
+    
+    async refreshCategory(category) {
+      try {
+        // Get random offset for variety
+        const randomOffset = Math.floor(Math.random() * 20)
+        const result = await videoApi.getVideosByCategory(category, 5, randomOffset)
+        this.categoryVideos[category] = result.data || result || []
+      } catch (e) {
+        console.error(`Refresh category ${category} error:`, e)
+      }
+    },
+    
+    viewMoreCategory(category) {
+      this.$router.push({ name: 'category', params: { category } })
     },
     
     playVideo(video) {
@@ -334,54 +386,53 @@ export default {
 <style scoped>
 .home {
   min-height: 100vh;
-  padding: 20px;
+  padding: 0 15px;
   max-width: 1400px;
   margin: 0 auto;
 }
 
+/* Header */
 .header {
-  text-align: center;
-  padding: 30px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  margin-bottom: 30px;
+  position: sticky;
+  top: 0;
+  background: linear-gradient(180deg, rgba(26, 26, 46, 0.98) 0%, rgba(26, 26, 46, 0.95) 100%);
+  padding: 12px 0;
+  margin: 0 -15px;
+  padding-left: 15px;
+  padding-right: 15px;
+  z-index: 100;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 15px;
 }
 
 .logo {
-  font-size: 2em;
-  margin-bottom: 10px;
+  font-size: 1.2em;
+  font-weight: 700;
   background: linear-gradient(90deg, #00d4ff, #7c3aed);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-}
-
-.stats {
-  color: #8b8b8b;
-  font-size: 0.9em;
-}
-
-.controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 15px;
-  margin-bottom: 30px;
-  padding: 20px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 15px;
+  white-space: nowrap;
 }
 
 .search-box {
   flex: 1;
-  min-width: 200px;
   display: flex;
-  gap: 10px;
+  max-width: 400px;
+  margin: 0 auto;
 }
 
 .search-box input {
   flex: 1;
-  padding: 12px 20px;
+  padding: 10px 15px;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
+  border-radius: 20px 0 0 20px;
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
   font-size: 14px;
@@ -399,62 +450,83 @@ export default {
 }
 
 .search-btn {
-  padding: 12px 20px;
+  padding: 10px 15px;
   background: linear-gradient(90deg, #00d4ff, #7c3aed);
   border: none;
-  border-radius: 8px;
+  border-radius: 0 20px 20px 0;
   color: #fff;
   cursor: pointer;
   transition: all 0.3s;
 }
 
 .search-btn:hover {
-  transform: translateY(-2px);
+  filter: brightness(1.1);
 }
 
-.controls select {
-  padding: 12px 20px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  font-size: 14px;
-  outline: none;
+.header-spacer {
+  width: 80px;
+}
+
+/* Category Tabs */
+.category-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 12px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.category-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tab-btn {
+  padding: 8px 18px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  color: #aaa;
+  font-size: 0.9em;
   cursor: pointer;
-  min-width: 150px;
+  transition: all 0.3s;
+  white-space: nowrap;
 }
 
-.controls select option {
-  background: #1a1a2e;
+.tab-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
   color: #fff;
 }
 
-.video-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 25px;
+.tab-btn.active {
+  background: linear-gradient(90deg, #00d4ff, #7c3aed);
+  border-color: transparent;
+  color: #fff;
 }
 
+/* Main Content */
+.main-content {
+  padding: 10px 0;
+}
+
+/* States */
 .loading-state,
-.error-state,
-.empty-state {
+.error-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px 20px;
+  padding: 80px 20px;
   text-align: center;
 }
 
 .loading-state p,
-.error-state p,
-.empty-state p {
+.error-state p {
   margin-top: 15px;
   color: #888;
 }
 
-.error-icon,
-.empty-icon {
+.error-icon {
   font-size: 4em;
 }
 
@@ -462,9 +534,10 @@ export default {
   margin-top: 20px;
 }
 
+/* Load More */
 .load-more {
   text-align: center;
-  padding: 30px;
+  padding: 20px;
 }
 
 .load-more .btn {
@@ -479,95 +552,82 @@ export default {
   border-width: 2px;
 }
 
+/* Bottom spacer for nav bar */
+.bottom-spacer {
+  height: 70px;
+}
+
 /* Mobile responsive */
 @media (max-width: 768px) {
   .home {
-    padding: 15px;
+    padding: 0 12px;
+  }
+  
+  .header {
+    margin: 0 -12px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  
+  .header-content {
+    gap: 10px;
   }
   
   .logo {
-    font-size: 1.5em;
+    font-size: 1em;
   }
   
-  .controls {
-    padding: 15px;
+  .header-spacer {
+    display: none;
   }
   
-  .video-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 15px;
+  .search-box {
+    flex: 1;
+    max-width: none;
+  }
+  
+  .search-box input {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  
+  .search-btn {
+    padding: 8px 12px;
+  }
+  
+  .category-tabs {
+    gap: 6px;
+    padding: 10px 0;
+  }
+  
+  .tab-btn {
+    padding: 6px 14px;
+    font-size: 0.8em;
   }
 }
 
 /* Small mobile devices */
 @media (max-width: 480px) {
   .home {
-    padding: 10px;
+    padding: 0 10px;
   }
   
   .header {
-    padding: 20px 0;
-    margin-bottom: 20px;
+    margin: 0 -10px;
+    padding: 10px;
   }
   
   .logo {
-    font-size: 1.3em;
+    font-size: 0.9em;
   }
   
-  .stats {
-    font-size: 0.8em;
+  .tab-btn {
+    padding: 5px 12px;
+    font-size: 0.75em;
   }
   
-  .controls {
-    padding: 12px;
-    gap: 10px;
-  }
-  
-  .search-box {
-    min-width: 100%;
-  }
-  
-  .search-box input {
-    padding: 10px 15px;
-    font-size: 13px;
-  }
-  
-  .search-btn {
-    padding: 10px 15px;
-  }
-  
-  .controls select {
-    padding: 10px 15px;
-    font-size: 13px;
-    min-width: 100%;
-  }
-  
-  .video-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-  }
-  
-  .loading-state,
-  .error-state,
-  .empty-state {
-    padding: 40px 15px;
-  }
-  
-  .error-icon,
-  .empty-icon {
-    font-size: 3em;
-  }
-  
-  .load-more {
-    padding: 20px;
-  }
-}
-
-/* Large tablets and small desktops */
-@media (min-width: 769px) and (max-width: 1024px) {
-  .video-grid {
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 20px;
+  .bottom-spacer {
+    height: 60px;
   }
 }
 
@@ -575,20 +635,17 @@ export default {
 @media (min-width: 1400px) {
   .home {
     max-width: 1600px;
-    padding: 30px;
+    padding: 0 30px;
   }
   
   .header {
-    padding: 40px 0;
+    margin: 0 -30px;
+    padding-left: 30px;
+    padding-right: 30px;
   }
   
   .logo {
-    font-size: 2.5em;
-  }
-  
-  .video-grid {
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 30px;
+    font-size: 1.4em;
   }
 }
 </style>
