@@ -177,7 +177,7 @@ public class VideoApp extends MultiDexApplication implements ImageLoaderFactory 
         } catch (Exception e) {
             Log.e(TAG, "Failed to create fallback ImageLoader", e);
             // Ultimate fallback - minimal configuration
-            return new ImageLoader(this);
+            return new ImageLoader.Builder(this).build();
         }
     }
 }
