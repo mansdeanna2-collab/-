@@ -313,7 +313,7 @@ RUN yes | sdkmanager --licenses && \\
 WORKDIR /app
 
 # Build arguments
-ARG WEB_APP_URL=http://localhost:8080
+ARG WEB_APP_URL=http://103.74.193.179:5000
 ARG BUILD_TYPE=debug
 
 # Copy the Android project (includes gradle wrapper)
@@ -337,7 +337,7 @@ COPY --from=0 /app/app/build/outputs/apk/$BUILD_TYPE/*.apk /output/
 '''
 
     def __init__(self, base_dir: str, output_dir: str, platform: str = 'web',
-                 release: bool = False, web_url: str = 'http://localhost:8080',
+                 release: bool = False, web_url: str = 'http://103.74.193.179:5000',
                  no_cache: bool = False):
         """
         初始化构建器 (Initialize builder)
@@ -1108,8 +1108,8 @@ def main() -> None:
                         help='目标平台 (Target platform): web, android, android-native (默认: web)')
     parser.add_argument('--release', action='store_true',
                         help='构建发布版而非调试版 (Build release instead of debug)')
-    parser.add_argument('--web-url', type=str, default='http://localhost:8080',
-                        help='deploy.py部署的Web应用地址 (Web app URL from deploy.py, 默认: http://localhost:8080)')
+    parser.add_argument('--web-url', type=str, default='http://103.74.193.179:5000',
+                        help='deploy.py部署的Web应用地址 (Web app URL from deploy.py, 默认: http://103.74.193.179:5000)')
     parser.add_argument('--api-url', type=str, default='http://103.74.193.179:5000',
                         help='API服务器地址，用于Web构建 (API server URL for web build)')
     parser.add_argument('--check', action='store_true',

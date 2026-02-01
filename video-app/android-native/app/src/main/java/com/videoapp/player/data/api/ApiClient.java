@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit;
 public final class ApiClient {
 
     private static final long TIMEOUT_SECONDS = 30L;
-    private static final String DEFAULT_BASE_URL = "http://localhost:8000/";
+    private static final String DEFAULT_BASE_URL = "http://103.74.193.179:5000/";
 
     private static ApiClient instance;
     private final Retrofit retrofit;
