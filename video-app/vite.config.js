@@ -7,7 +7,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   
   // API base URL from environment variable or default
-  const apiBaseUrl = env.VITE_API_BASE_URL || 'http://localhost:5000'
+  const apiBaseUrl = env.VITE_API_BASE_URL || 'http://103.74.193.179:5000'
   
   return {
     plugins: [vue()],
