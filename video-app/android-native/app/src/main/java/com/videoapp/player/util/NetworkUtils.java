@@ -5,7 +5,6 @@ import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
-import android.os.Build;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -49,18 +48,16 @@ public final class NetworkUtils {
             // Note: NET_CAPABILITY_VALIDATED might not be set on some networks,
             // so we also check for basic connectivity
             boolean hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
-            boolean isValidated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+            boolean hasTransport = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+                    || capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+                    || capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET);
 
-            // On Android 9 (API 28), some networks might not have VALIDATED flag set properly
-            // So we accept if at least INTERNET capability is present
-            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
-                // For Android 9 and below, be more lenient
-                return hasInternet && (isValidated ||
-                        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
-                        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR));
-            }
-
-            return hasInternet && isValidated;
+            // Be lenient with network validation to avoid blocking legitimate connections
+            // Some networks (especially on older devices or specific network configurations)
+            // may not properly report the VALIDATED flag
+            // If we have internet capability and a valid transport, allow connection
+            // The actual API call will fail gracefully if there's no real connectivity
+            return hasInternet && hasTransport;
         } catch (Exception e) {
             Log.e(TAG, "Error checking network availability", e);
             // In case of error, return false to be safe - let the calling code handle it
