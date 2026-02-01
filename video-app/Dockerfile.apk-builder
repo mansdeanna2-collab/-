@@ -68,6 +68,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 ARG CMDLINE_TOOLS_VERSION=11076708
 ARG BUILD_TOOLS_VERSION=35.0.0
 ARG PLATFORM_VERSION=android-35
+ARG KOTLIN_VERSION=1.8.22
 
 WORKDIR ${ANDROID_HOME}/cmdline-tools
 RUN wget -q https://dl.google.com/android/repository/commandlinetools-linux-${CMDLINE_TOOLS_VERSION}_latest.zip -O cmdline-tools.zip \
@@ -94,6 +95,9 @@ WORKDIR /app
 
 # 创建输出目录
 RUN mkdir -p /app/output
+
+# 设置 Kotlin 版本环境变量 (用于运行时脚本)
+ENV KOTLIN_VERSION=${KOTLIN_VERSION}
 
 # 注意: 源代码不再复制到镜像中，而是在运行时通过卷挂载
 # 这确保每次构建都使用最新的源代码
