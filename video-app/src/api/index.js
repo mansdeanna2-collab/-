@@ -70,9 +70,27 @@ function getCacheKey(url, params = {}) {
   return url + '?' + JSON.stringify(params)
 }
 
+// Get API base URL from environment variable
+// VITE_API_BASE_URL should be set to the API server URL without the /api suffix (e.g., http://103.74.193.179:5000)
+// In development, the Vite dev server proxies /api requests, so we can use relative path
+const getApiBaseUrl = () => {
+  const envBaseUrl = import.meta.env.VITE_API_BASE_URL
+  if (envBaseUrl) {
+    // Remove trailing slash if present
+    const baseUrl = envBaseUrl.endsWith('/') ? envBaseUrl.slice(0, -1) : envBaseUrl
+    // Check if URL already ends with /api to avoid duplicate /api/api
+    if (baseUrl.endsWith('/api')) {
+      return baseUrl
+    }
+    return `${baseUrl}/api`
+  }
+  // Fallback to relative path for development or when env var is not set
+  return '/api'
+}
+
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: getApiBaseUrl(),
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json'
