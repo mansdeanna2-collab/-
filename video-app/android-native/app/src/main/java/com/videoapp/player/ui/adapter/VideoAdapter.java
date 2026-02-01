@@ -12,7 +12,6 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import coil.Coil;
 import coil.request.ImageRequest;
-import coil.size.Size;
 import coil.transform.RoundedCornersTransformation;
 
 import com.videoapp.player.R;
@@ -145,7 +144,7 @@ public class VideoAdapter extends ListAdapter<Video, VideoAdapter.VideoViewHolde
                             .placeholder(R.drawable.ic_video_placeholder)
                             .error(R.drawable.ic_video_placeholder)
                             .transformations(Collections.singletonList(new RoundedCornersTransformation(12f)))
-                            .size(new Size(480, 270))
+                            .size(480, 270)
                             .allowHardware(true)
                             .target(binding.thumbnailImage)
                             .listener(
