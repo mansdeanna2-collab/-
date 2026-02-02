@@ -64,7 +64,7 @@
       />
 
       <!-- Load More (for when viewing a single category or search results) -->
-      <div v-if="isFilteredView && hasMore && !loadingMore" class="load-more">
+      <div v-if="isFilteredView && (hasMore || loadingMore)" class="load-more">
         <button 
           class="btn btn-secondary" 
           @click="loadMore"

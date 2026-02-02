@@ -13,7 +13,7 @@
         >
           <img 
             v-if="video.video_image"
-            :src="formatImageUrl(video.video_image)"
+            :ref="el => setImgRef(el, index)"
             :alt="video.video_title"
             class="slide-image"
             @error="handleImageError"
@@ -38,7 +38,7 @@
 </template>
 
 <script>
-import { formatImageUrl } from '@/utils/imageUtils'
+import { formatImageUrl, loadImageWithBase64Detection } from '@/utils/imageUtils'
 
 export default {
   name: 'CarouselComponent',
@@ -60,7 +60,9 @@ export default {
   data() {
     return {
       currentIndex: 0,
-      timer: null
+      timer: null,
+      imgRefs: {},
+      loadedUrls: new Set()
     }
   },
   watch: {
@@ -68,18 +70,40 @@ export default {
       immediate: true,
       handler() {
         this.currentIndex = 0
+        this.loadedUrls.clear()
         this.startAutoplay()
+        this.$nextTick(() => {
+          this.loadAllImages()
+        })
       }
     }
   },
   mounted() {
     this.startAutoplay()
+    this.loadAllImages()
   },
   beforeUnmount() {
     this.stopAutoplay()
   },
   methods: {
     formatImageUrl,
+    setImgRef(el, index) {
+      if (el) {
+        this.imgRefs[index] = el
+      }
+    },
+    async loadAllImages() {
+      // Load all images in parallel for better performance
+      const loadPromises = this.videos.map((video, i) => {
+        const imgUrl = video?.video_image
+        if (imgUrl && this.imgRefs[i] && !this.loadedUrls.has(imgUrl)) {
+          this.loadedUrls.add(imgUrl)
+          return loadImageWithBase64Detection(this.imgRefs[i], imgUrl)
+        }
+        return Promise.resolve()
+      })
+      await Promise.allSettled(loadPromises)
+    },
     handleImageError(e) {
       e.target.src = ''
       e.target.style.background = 'linear-gradient(135deg, #2a2a4a 0%, #1a1a3e 100%)'

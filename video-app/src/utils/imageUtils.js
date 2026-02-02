@@ -21,7 +21,7 @@ export function cleanBase64Content(content) {
   if (!content || typeof content !== 'string') return null
   
   // Remove all whitespace (newlines, spaces, tabs, carriage returns)
-  const cleaned = content.replace(/[\s\r\n]+/g, '')
+  let cleaned = content.replace(/[\s\r\n]+/g, '')
   
   // Minimum length check
   if (cleaned.length < 4) {
@@ -29,16 +29,26 @@ export function cleanBase64Content(content) {
   }
   
   // Validate base64 characters and proper padding
-  // Base64 alphabet: A-Z, a-z, 0-9, +, /
+  // Standard base64 alphabet: A-Z, a-z, 0-9, +, /
+  // URL-safe base64 alphabet: A-Z, a-z, 0-9, -, _
   // Padding: = (0-2 at end)
-  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(cleaned)) {
+  const isStandardBase64 = /^[A-Za-z0-9+/]+={0,2}$/.test(cleaned)
+  const isUrlSafeBase64 = /^[A-Za-z0-9_-]+={0,2}$/.test(cleaned)
+  
+  if (!isStandardBase64 && !isUrlSafeBase64) {
     return null
   }
   
+  // Convert URL-safe base64 to standard base64
+  if (isUrlSafeBase64 && !isStandardBase64) {
+    cleaned = cleaned.replace(/-/g, '+').replace(/_/g, '/')
+  }
+  
   // Check that length is valid for base64 (must be multiple of 4 with padding)
-  // Valid base64 strings have length % 4 === 0
+  // If not, try to add padding
   if (cleaned.length % 4 !== 0) {
-    return null
+    const padNeeded = 4 - (cleaned.length % 4)
+    cleaned += '='.repeat(padNeeded)
   }
   
   return cleaned

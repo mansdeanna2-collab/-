@@ -20,7 +20,7 @@
         <div class="video-thumbnail">
           <img 
             v-if="videos[0].video_image"
-            :src="formatImageUrl(videos[0].video_image)"
+            ref="largeImg"
             :alt="videos[0].video_title"
             @error="handleImageError"
           />
@@ -43,14 +43,14 @@
       <div class="videos-small">
         <div 
           class="video-small"
-          v-for="video in videos.slice(1, 5)"
+          v-for="(video, index) in videos.slice(1, 5)"
           :key="video.video_id"
           @click="$emit('play', video)"
         >
           <div class="video-thumbnail">
             <img 
               v-if="video.video_image"
-              :src="formatImageUrl(video.video_image)"
+              :ref="el => setSmallImgRef(el, index)"
               :alt="video.video_title"
               @error="handleImageError"
             />
@@ -79,7 +79,7 @@
 </template>
 
 <script>
-import { formatImageUrl } from '@/utils/imageUtils'
+import { formatImageUrl, loadImageWithBase64Detection } from '@/utils/imageUtils'
 import { formatPlayCount } from '@/utils/formatUtils'
 
 export default {
@@ -95,9 +95,60 @@ export default {
     }
   },
   emits: ['play', 'refresh', 'more'],
+  data() {
+    return {
+      smallImgRefs: {},
+      loadedUrls: new Set()
+    }
+  },
+  watch: {
+    videos: {
+      immediate: true,
+      handler() {
+        this.loadedUrls.clear()
+        this.$nextTick(() => {
+          this.loadAllImages()
+        })
+      }
+    }
+  },
+  mounted() {
+    this.loadAllImages()
+  },
   methods: {
     formatImageUrl,
     formatPlayCount,
+    setSmallImgRef(el, index) {
+      if (el) {
+        this.smallImgRefs[index] = el
+      }
+    },
+    async loadAllImages() {
+      const loadPromises = []
+      
+      // Load large video image
+      if (this.videos.length > 0 && this.videos[0].video_image && this.$refs.largeImg) {
+        const url = this.videos[0].video_image
+        if (!this.loadedUrls.has(url)) {
+          this.loadedUrls.add(url)
+          loadPromises.push(loadImageWithBase64Detection(this.$refs.largeImg, url))
+        }
+      }
+      
+      // Load small video images in parallel
+      const smallVideos = this.videos.slice(1, 5)
+      for (let i = 0; i < smallVideos.length; i++) {
+        const video = smallVideos[i]
+        const imgUrl = video?.video_image
+        if (imgUrl && this.smallImgRefs[i] && !this.loadedUrls.has(imgUrl)) {
+          this.loadedUrls.add(imgUrl)
+          loadPromises.push(loadImageWithBase64Detection(this.smallImgRefs[i], imgUrl))
+        }
+      }
+      
+      // Wait for all images to load
+      await Promise.allSettled(loadPromises)
+    },
     handleImageError(e) {
       e.target.src = ''
       e.target.closest('.video-thumbnail').classList.add('no-image')
