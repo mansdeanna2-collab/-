@@ -92,6 +92,12 @@ import {
   hasScrollPosition
 } from '@/utils/scrollManager'
 import { extractArrayData } from '@/utils/apiUtils'
+import { 
+  getMockCategories, 
+  getMockVideosByCategory, 
+  getMockTopVideos,
+  searchMockVideos
+} from '@/utils/mockData'
 
 export default {
   name: 'HomeView',
@@ -127,7 +133,9 @@ export default {
       shouldRestoreScroll: false,
       searchDebounceTimer: null,
       // For filtered view (search or single category)
-      filteredVideos: []
+      filteredVideos: [],
+      // Flag to indicate using mock data
+      usingMockData: false
     }
   },
   computed: {
@@ -224,9 +232,17 @@ export default {
       
       this.loading = true
       this.error = false
+      this.usingMockData = false
       
       try {
         await this.loadCategories()
+        
+        // If no categories loaded from API, use mock data
+        if (this.categories.length === 0) {
+          console.log('API unavailable, using mock data')
+          this.usingMockData = true
+          this.categories = getMockCategories()
+        }
         
         if (this.isFilteredView) {
           await this.loadFilteredVideos()
@@ -234,9 +250,11 @@ export default {
           await this.loadHomeData()
         }
       } catch (e) {
-        this.error = true
-        this.errorMessage = '加载失败，请稍后重试'
-        console.error('Init error:', e)
+        // Fallback to mock data on error
+        console.log('Error loading data, falling back to mock data:', e)
+        this.usingMockData = true
+        this.categories = getMockCategories()
+        await this.loadHomeDataWithMock()
       } finally {
         this.loading = false
       }
@@ -248,18 +266,43 @@ export default {
         this.categories = extractArrayData(result)
       } catch (e) {
         console.error('Load categories error:', e)
+        // Don't throw, let init handle fallback
       }
+    },
+    
+    async loadHomeDataWithMock() {
+      const videosPerCategory = this.$options.VIDEOS_PER_CATEGORY
+      
+      // Load mock carousel videos
+      this.carouselVideos = getMockTopVideos(videosPerCategory)
+      
+      // Load mock videos for each category
+      const categoriesToLoad = this.categories.slice(0, videosPerCategory)
+      categoriesToLoad.forEach(cat => {
+        this.categoryVideos[cat.video_category] = getMockVideosByCategory(cat.video_category, videosPerCategory)
+      })
     },
     
     async loadHomeData() {
       const videosPerCategory = this.$options.VIDEOS_PER_CATEGORY
       
+      // If using mock data, use mock method
+      if (this.usingMockData) {
+        await this.loadHomeDataWithMock()
+        return
+      }
+      
       // Load carousel videos (top videos)
       try {
         const topResult = await videoApi.getTopVideos(videosPerCategory)
         this.carouselVideos = extractArrayData(topResult)
+        // If no videos returned, use mock data
+        if (this.carouselVideos.length === 0) {
+          this.carouselVideos = getMockTopVideos(videosPerCategory)
+        }
       } catch (e) {
         console.error('Load top videos error:', e)
+        this.carouselVideos = getMockTopVideos(videosPerCategory)
       }
       
       // Load videos for each category in parallel (first 5 categories)
@@ -268,10 +311,15 @@ export default {
       const categoryPromises = categoriesToLoad.map(async (cat) => {
         try {
           const result = await videoApi.getVideosByCategory(cat.video_category, videosPerCategory)
-          return { category: cat.video_category, videos: extractArrayData(result) }
+          const videos = extractArrayData(result)
+          // If no videos returned, use mock data for this category
+          if (videos.length === 0) {
+            return { category: cat.video_category, videos: getMockVideosByCategory(cat.video_category, videosPerCategory) }
+          }
+          return { category: cat.video_category, videos }
         } catch (e) {
           console.error(`Load category ${cat.video_category} error:`, e)
-          return { category: cat.video_category, videos: [] }
+          return { category: cat.video_category, videos: getMockVideosByCategory(cat.video_category, videosPerCategory) }
         }
       })
       
@@ -287,13 +335,35 @@ export default {
       
       try {
         let result
-        if (this.searchKeyword) {
-          result = await videoApi.searchVideos(this.searchKeyword, this.limit)
-        } else if (this.selectedCategory) {
-          result = await videoApi.getVideosByCategory(this.selectedCategory, this.limit)
+        let videos = []
+        
+        if (this.usingMockData) {
+          // Use mock data
+          if (this.searchKeyword) {
+            videos = searchMockVideos(this.searchKeyword, this.limit)
+          } else if (this.selectedCategory) {
+            videos = getMockVideosByCategory(this.selectedCategory, this.limit)
+          }
+        } else {
+          // Try API first
+          if (this.searchKeyword) {
+            result = await videoApi.searchVideos(this.searchKeyword, this.limit)
+          } else if (this.selectedCategory) {
+            result = await videoApi.getVideosByCategory(this.selectedCategory, this.limit)
+          }
+          videos = extractArrayData(result)
+          
+          // Fallback to mock if no results
+          if (videos.length === 0) {
+            if (this.searchKeyword) {
+              videos = searchMockVideos(this.searchKeyword, this.limit)
+            } else if (this.selectedCategory) {
+              videos = getMockVideosByCategory(this.selectedCategory, this.limit)
+            }
+          }
         }
         
-        this.filteredVideos = extractArrayData(result)
+        this.filteredVideos = videos
         this.hasMore = this.filteredVideos.length >= this.limit
         
         // Update category sections to show filtered results
@@ -302,6 +372,16 @@ export default {
         }
       } catch (e) {
         console.error('Load filtered videos error:', e)
+        // Fallback to mock data
+        if (this.searchKeyword) {
+          this.filteredVideos = searchMockVideos(this.searchKeyword, this.limit)
+        } else if (this.selectedCategory) {
+          this.filteredVideos = getMockVideosByCategory(this.selectedCategory, this.limit)
+        }
+        this.hasMore = false
+        if (this.selectedCategory) {
+          this.categoryVideos = { [this.selectedCategory]: this.filteredVideos }
+        }
       } finally {
         this.loading = false
       }
@@ -309,6 +389,12 @@ export default {
     
     async loadMore() {
       if (this.loading || this.loadingMore) return
+      
+      // Mock data doesn't support pagination
+      if (this.usingMockData) {
+        this.hasMore = false
+        return
+      }
       
       this.loadingMore = true
       this.page++

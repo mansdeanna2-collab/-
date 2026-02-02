@@ -98,7 +98,7 @@ const getApiBaseUrl = () => {
 // Create axios instance with base configuration
 const api = axios.create({
   baseURL: getApiBaseUrl(),
-  timeout: 30000,
+  timeout: 5000, // Reduced timeout for faster fallback to mock data
   headers: {
     'Content-Type': 'application/json'
   }
@@ -124,17 +124,16 @@ api.interceptors.response.use(
   async error => {
     const config = error.config
     
-    // Retry logic for network errors (up to 2 retries)
+    // Retry logic for network errors (1 retry only for faster fallback)
     if (
       config &&
-      config.retryCount < 2 &&
+      config.retryCount < 1 &&
       (!error.response || error.response.status >= 500)
     ) {
       config.retryCount += 1
       
-      // Exponential backoff: 1s, 2s
-      const delay = config.retryCount * 1000
-      await new Promise(resolve => setTimeout(resolve, delay))
+      // Short delay before retry
+      await new Promise(resolve => setTimeout(resolve, 500))
       
       return api(config)
     }
