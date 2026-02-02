@@ -146,6 +146,7 @@ export default {
   VIDEOS_PER_CATEGORY: 5,
   INITIAL_CATEGORIES_COUNT: 4,
   MAX_CATEGORIES_COUNT: 8,
+  LOAD_MORE_DELAY: 300, // ms delay for smooth UX when loading more categories
   beforeRouteLeave(to, from, next) {
     if (to.name === 'player') {
       const routePath = from.fullPath
@@ -280,21 +281,19 @@ export default {
   methods: {
     // Setup intersection observer for lazy loading more categories
     setupIntersectionObserver() {
-      this.$nextTick(() => {
-        if (this.$refs.loadMoreTrigger && !this.intersectionObserver) {
-          this.intersectionObserver = new IntersectionObserver(
-            (entries) => {
-              entries.forEach((entry) => {
-                if (entry.isIntersecting && this.hasMoreCategories && !this.loadingMoreCategories) {
-                  this.loadMoreCategories()
-                }
-              })
-            },
-            { threshold: 0.1 }
-          )
-          this.intersectionObserver.observe(this.$refs.loadMoreTrigger)
-        }
-      })
+      if (this.$refs.loadMoreTrigger && !this.intersectionObserver) {
+        this.intersectionObserver = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting && this.hasMoreCategories && !this.loadingMoreCategories) {
+                this.loadMoreCategories()
+              }
+            })
+          },
+          { threshold: 0.1 }
+        )
+        this.intersectionObserver.observe(this.$refs.loadMoreTrigger)
+      }
     },
     
     // Cleanup intersection observer
@@ -311,11 +310,11 @@ export default {
       
       this.loadingMoreCategories = true
       
-      // Simulate a small delay for smooth UX
+      // Small delay for smooth UX transition
       setTimeout(() => {
         this.visibleCategoriesCount = this.$options.MAX_CATEGORIES_COUNT
         this.loadingMoreCategories = false
-      }, 300)
+      }, this.$options.LOAD_MORE_DELAY)
     },
     
     // Handle main category tab click
