@@ -119,10 +119,10 @@ export default {
   }
 }
 
-/* Large screens */
+/* Large screens - keep bottom nav visible */
 @media (min-width: 768px) {
   .bottom-nav {
-    display: none;
+    display: block;
   }
 }
 </style>
