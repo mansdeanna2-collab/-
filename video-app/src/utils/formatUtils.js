@@ -24,7 +24,7 @@ export function formatPlayCount(count) {
  * @returns {string} - Formatted duration string
  */
 export function formatDuration(seconds) {
-  if (!seconds || seconds <= 0) return '00:00'
+  if (!seconds || seconds <= 0 || !isFinite(seconds)) return '00:00'
   
   const hrs = Math.floor(seconds / 3600)
   const mins = Math.floor((seconds % 3600) / 60)

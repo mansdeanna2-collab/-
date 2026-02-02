@@ -67,7 +67,14 @@ function setCache(key, data) {
  * @returns {string} - Cache key
  */
 function getCacheKey(url, params = {}) {
-  return url + '?' + JSON.stringify(params)
+  // Sort keys for consistent cache keys regardless of property order
+  const sortedParams = Object.keys(params)
+    .sort()
+    .reduce((acc, key) => {
+      acc[key] = params[key]
+      return acc
+    }, {})
+  return url + '?' + JSON.stringify(sortedParams)
 }
 
 // Get API base URL from environment variable

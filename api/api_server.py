@@ -173,8 +173,8 @@ def get_videos() -> Tuple[Response, int]:
         limit: 返回数量 (默认20, 最大100) / Return count (default 20, max 100)
         offset: 偏移量 (默认0) / Offset (default 0)
     """
-    limit: int = min(int(request.args.get('limit', 20)), 100)
-    offset: int = int(request.args.get('offset', 0))
+    limit: int = max(1, min(int(request.args.get('limit', 20)), 100))
+    offset: int = max(0, int(request.args.get('offset', 0)))
 
     with get_db() as db:
         videos: List[Dict[str, Any]] = db.get_all_videos(limit=limit, offset=offset)
@@ -210,8 +210,8 @@ def search_videos() -> Tuple[Response, int]:
     if not keyword:
         return api_response(message="请提供搜索关键词", code=400)
 
-    limit: int = min(int(request.args.get('limit', 20)), 100)
-    offset: int = max(int(request.args.get('offset', 0)), 0)
+    limit: int = max(1, min(int(request.args.get('limit', 20)), 100))
+    offset: int = max(0, int(request.args.get('offset', 0)))
 
     with get_db() as db:
         videos: List[Dict[str, Any]] = db.search_videos(keyword, limit=limit, offset=offset)
@@ -234,8 +234,8 @@ def get_videos_by_category() -> Tuple[Response, int]:
     if not category:
         return api_response(message="请提供分类名称", code=400)
 
-    limit: int = min(int(request.args.get('limit', 20)), 100)
-    offset: int = max(int(request.args.get('offset', 0)), 0)
+    limit: int = max(1, min(int(request.args.get('limit', 20)), 100))
+    offset: int = max(0, int(request.args.get('offset', 0)))
 
     with get_db() as db:
         videos: List[Dict[str, Any]] = db.get_videos_by_category(category, limit=limit, offset=offset)
@@ -252,7 +252,7 @@ def get_top_videos() -> Tuple[Response, int]:
     Query参数 (Query parameters):
         limit: 返回数量 (默认10) / Return count (default 10)
     """
-    limit: int = min(int(request.args.get('limit', 10)), 50)
+    limit: int = max(1, min(int(request.args.get('limit', 10)), 50))
 
     with get_db() as db:
         videos: List[Dict[str, Any]] = db.get_top_videos(limit=limit)
