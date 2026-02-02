@@ -48,9 +48,7 @@ export function cleanBase64Content(content) {
   // If not, try to add padding
   if (cleaned.length % 4 !== 0) {
     const padNeeded = 4 - (cleaned.length % 4)
-    if (padNeeded < 4) {
-      cleaned += '='.repeat(padNeeded)
-    }
+    cleaned += '='.repeat(padNeeded)
   }
   
   return cleaned

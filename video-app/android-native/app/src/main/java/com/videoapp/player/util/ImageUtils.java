@@ -192,13 +192,11 @@ public final class ImageUtils {
         if (cleaned.length() % 4 != 0) {
             // Try to add padding
             int padNeeded = 4 - (cleaned.length() % 4);
-            if (padNeeded < 4) {
-                StringBuilder sb = new StringBuilder(cleaned);
-                for (int i = 0; i < padNeeded; i++) {
-                    sb.append('=');
-                }
-                cleaned = sb.toString();
+            StringBuilder sb = new StringBuilder(cleaned);
+            for (int i = 0; i < padNeeded; i++) {
+                sb.append('=');
             }
+            cleaned = sb.toString();
         }
 
         return cleaned;

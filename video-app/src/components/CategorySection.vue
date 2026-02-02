@@ -124,25 +124,30 @@ export default {
       }
     },
     async loadAllImages() {
+      const loadPromises = []
+      
       // Load large video image
       if (this.videos.length > 0 && this.videos[0].video_image && this.$refs.largeImg) {
         const url = this.videos[0].video_image
         if (!this.loadedUrls.has(url)) {
           this.loadedUrls.add(url)
-          await loadImageWithBase64Detection(this.$refs.largeImg, url)
+          loadPromises.push(loadImageWithBase64Detection(this.$refs.largeImg, url))
         }
       }
       
-      // Load small video images
+      // Load small video images in parallel
       const smallVideos = this.videos.slice(1, 5)
       for (let i = 0; i < smallVideos.length; i++) {
         const video = smallVideos[i]
         const imgUrl = video?.video_image
         if (imgUrl && this.smallImgRefs[i] && !this.loadedUrls.has(imgUrl)) {
           this.loadedUrls.add(imgUrl)
-          await loadImageWithBase64Detection(this.smallImgRefs[i], imgUrl)
+          loadPromises.push(loadImageWithBase64Detection(this.smallImgRefs[i], imgUrl))
         }
       }
+      
+      // Wait for all images to load
+      await Promise.allSettled(loadPromises)
     },
     handleImageError(e) {
       e.target.src = ''

@@ -93,14 +93,16 @@ export default {
       }
     },
     async loadAllImages() {
-      for (let i = 0; i < this.videos.length; i++) {
-        const video = this.videos[i]
+      // Load all images in parallel for better performance
+      const loadPromises = this.videos.map((video, i) => {
         const imgUrl = video?.video_image
         if (imgUrl && this.imgRefs[i] && !this.loadedUrls.has(imgUrl)) {
           this.loadedUrls.add(imgUrl)
-          await loadImageWithBase64Detection(this.imgRefs[i], imgUrl)
+          return loadImageWithBase64Detection(this.imgRefs[i], imgUrl)
         }
-      }
+        return Promise.resolve()
+      })
+      await Promise.allSettled(loadPromises)
     },
     handleImageError(e) {
       e.target.src = ''
