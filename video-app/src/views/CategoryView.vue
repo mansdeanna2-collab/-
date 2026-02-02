@@ -107,7 +107,6 @@ export default {
       this.error = false
       this.page = 1
       this.videos = []
-      this.usingMockData = false
       
       try {
         const result = await videoApi.getVideosByCategory(this.categoryName, this.limit)

@@ -211,16 +211,16 @@ export default {
     // Use actual API categories instead of hardcoded subcategory mappings
     currentSubcategories() {
       // Extract category names from API categories
-      // API returns: [{ video_category: 'name', count: N }, ...]
+      // API response format: [{ video_category: 'name', video_count: N }, ...]
+      // Handle different possible response structures for robustness
       const apiCategoryNames = this.categories.map(cat => 
         cat.video_category || cat.name || cat
       ).filter(Boolean)
       
       // If we have API categories, use them; otherwise fall back to hardcoded mappings
       if (apiCategoryNames.length > 0) {
-        // For 'recommend' tab, show all categories from API
-        // For other tabs, we can filter or show relevant categories
-        // Since API categories are the real ones, we should use them directly
+        // All tabs now show the same API categories since the database
+        // contains the actual video categories, not the hardcoded subcategories
         return apiCategoryNames.slice(0, this.$options.MAX_CATEGORIES_COUNT)
       }
       
