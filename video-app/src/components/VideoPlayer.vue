@@ -16,7 +16,10 @@
         webkit-playsinline
         x5-video-player-type="h5"
         x5-video-player-fullscreen="true"
+        x5-video-orientation="portrait"
+        x-webkit-airplay="allow"
         preload="metadata"
+        crossorigin="anonymous"
         @play="onPlay"
         @pause="onPause"
         @ended="onEnded"
@@ -623,6 +626,10 @@ export default {
   width: 100%;
   height: 100%;
   background: #000;
+  object-fit: contain;
+  /* Ensure video is properly displayed on all browsers */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
 }
 
 .loading-overlay,

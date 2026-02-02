@@ -1,6 +1,14 @@
-# 视频播放器应用 (Video Player App)
+# 悟空视频 (WuKong Video)
 
-一个现代化的视频播放器应用，支持 Docker 一键部署和 Android APK 打包（WebView 和原生两种方式）。
+一个现代化的 H5/Web 视频播放器应用，支持 Docker 一键部署，专为移动端和桌面端浏览器优化。
+
+## 🌟 项目特色
+
+- 📱 **H5 移动端优先** - 完美适配手机、平板和桌面浏览器
+- 🎬 **流畅视频体验** - 智能缓冲、多集切换、倍速播放
+- 🎨 **现代化 UI** - 渐变色彩、流畅动画、响应式设计
+- 🐳 **Docker 一键部署** - 零配置快速部署
+- 🔍 **视频搜索** - 支持关键词搜索和分类筛选
 
 ## 项目结构
 
@@ -12,9 +20,6 @@
 │   │   ├── views/      # 页面视图
 │   │   ├── router/     # 路由配置
 │   │   └── assets/     # 静态资源
-│   ├── android-native/ # 🆕 原生 Android 应用 (Java/ExoPlayer)
-│   │   ├── app/src/main/java/   # Java 源码
-│   │   └── app/src/main/res/    # Android 资源
 │   ├── package.json    # 依赖配置
 │   └── Dockerfile      # 前端容器配置
 ├── api/                # 后端 API 服务
@@ -25,24 +30,23 @@
 │   ├── video_database.py   # 数据库模块 (MySQL/SQLite)
 │   └── video_collector.py  # 视频采集脚本
 ├── deploy.py           # Docker自动部署脚本
-├── docker_build_app.py # 应用打包脚本 (Web/Android/Android-Native)
 └── docker-compose.yml  # Docker Compose配置
 ```
 
 ## 功能特性
 
 - ✅ Vue 3 + Vite 现代化前端架构
-- ✅ 支持 H5 网页访问
-- ✅ 支持 Android WebView APK 打包
-- ✅ 🆕 **支持原生 Android APK** (Java/ExoPlayer/Retrofit)
+- ✅ H5 网页访问，适配移动端和桌面端
 - ✅ 视频分类和搜索
-- ✅ 视频播放器支持多集
-- ✅ 响应式设计，适配手机和平板
+- ✅ 视频播放器支持多集、倍速播放
+- ✅ 响应式设计，适配手机、平板和桌面
+- ✅ 手势控制 (滑动快进/快退、双击暂停)
+- ✅ 智能视频缓冲和错误重试
 - ✅ REST API 接口
 - ✅ 支持 MySQL 和 SQLite 数据库
 - ✅ Docker 一键自动部署 (Ubuntu 22)
-- ✅ TypeScript 支持 (TypeScript support)
-- ✅ ESLint 代码质量检查 (ESLint code quality checking)
+- ✅ TypeScript 支持
+- ✅ ESLint 代码质量检查
 
 ## 🔧 代码质量工具 (Code Quality Tools)
 
@@ -170,104 +174,6 @@ docker compose logs -f
 docker compose down
 ```
 
-## 📱 Android APK 打包
-
-本项目支持两种 Android APK 构建方式:
-
-### 1. 原生 Android 应用 (推荐) 🆕
-
-使用 Java/ExoPlayer/Retrofit 构建的真正原生 Android 应用，无需 WebView 包装器。
-
-**特性:**
-- ✅ **ExoPlayer** - 高性能原生视频播放器
-- ✅ **Retrofit** - 类型安全的 REST API 调用
-- ✅ **Coil** - 高效图片加载和缓存
-- ✅ **Material Design 3** - 原生 UI 组件
-- ✅ **Java 11** - 现代 Java 开发
-- ✅ **ViewBinding** - 类型安全的视图访问
-- ✅ 支持多集视频播放
-- ✅ 视频搜索和分类筛选
-- ✅ 无需部署 Web 服务，直接调用 API
-
-**构建方法:**
-
-```bash
-# 构建原生 Android APK (使用默认 API 地址)
-python3 docker_build_app.py --platform android-native
-
-# 构建原生 Android APK 并指定 API 地址
-python3 docker_build_app.py --platform android-native --api-url http://your-api-server:5000
-
-# 构建发布版 APK
-python3 docker_build_app.py --platform android-native --release --api-url http://your-api-server:5000
-```
-
-**项目结构:**
-
-```
-video-app/android-native/
-├── app/
-│   ├── src/main/
-│   │   ├── java/com/videoapp/player/
-│   │   │   ├── data/           # 数据层 (API, Repository, Models)
-│   │   │   ├── ui/             # UI层 (Activities, Adapters, ViewModels)
-│   │   │   └── util/           # 工具类
-│   │   └── res/                # 资源文件
-│   └── build.gradle.kts
-├── build.gradle.kts
-└── settings.gradle.kts
-```
-
-**GitHub Actions 构建:**
-
-1. 访问仓库的 Actions 页面
-2. 选择 "Build Native Android APK" 工作流程
-3. 点击 "Run workflow" 按钮
-4. 输入 API 地址和构建类型
-5. 下载构建完成的 APK
-
-### 2. WebView 包装应用
-
-使用 WebView 包装 deploy.py 部署的 Web 应用。
-
-```bash
-# 构建 Android WebView APK (使用默认地址 http://localhost:8080)
-python3 docker_build_app.py --platform android
-
-# 构建 Android APK 并指定 Web 应用地址
-python3 docker_build_app.py --platform android --web-url http://your-server:8080
-
-# 构建发布版 APK
-python3 docker_build_app.py --platform android --release --web-url http://your-server:8080
-```
-
-**构建流程:**
-
-1. 首先使用 `deploy.py` 部署 Web 应用到服务器
-2. 然后使用 `docker_build_app.py --platform android --web-url http://your-server:8080` 构建 APK
-3. APK 会在 `build-output/android/` 目录生成
-
-**GitHub Actions 构建:**
-
-1. 访问仓库的 Actions 页面
-2. 选择 "Build Android WebView APK" 工作流程
-3. 点击 "Run workflow" 按钮
-4. 输入 Web 应用地址和构建类型
-5. 下载构建完成的 APK
-
-### 通用命令
-
-```bash
-# 构建 Web 版本
-python3 docker_build_app.py
-
-# 检查依赖
-python3 docker_build_app.py --check
-
-# 清理构建产物
-python3 docker_build_app.py --clean
-```
-
 ## API 接口
 
 | 方法 | 路径 | 描述 |
@@ -351,7 +257,6 @@ python tools/video_database.py --import-spjs videos_*.json
 ## 技术栈
 
 - **前端**: Vue 3, Vite, Vue Router, Axios
-- **原生 Android**: Java 11, ExoPlayer, Retrofit, Coil, Material Design 3
 - **后端**: Flask, Flask-CORS
 - **数据库**: MySQL / SQLite
 - **部署**: Docker, Docker Compose, Nginx

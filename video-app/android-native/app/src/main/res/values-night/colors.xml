@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- Chip text color selector -->
-    <color name="chip_text_color">@color/text_primary</color>
-    
-    <!-- Episode button text color selector -->
-    <color name="episode_button_text">@color/text_primary</color>
-</resources>

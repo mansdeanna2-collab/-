@@ -167,3 +167,35 @@ button, a, select, input[type="file"] {
   -ms-user-select: none;
   user-select: none;
 }
+
+/* Video element improvements for H5 */
+video {
+  /* Prevent default iOS/Android video styles */
+  -webkit-appearance: none;
+  /* Ensure video fills container properly */
+  max-width: 100%;
+  /* Better rendering on mobile */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  /* Prevent flickering on mobile */
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* Video fullscreen improvements */
+video::-webkit-media-controls-fullscreen-button {
+  display: block;
+}
+
+/* Better mobile video controls */
+@media (max-width: 768px) {
+  video::-webkit-media-controls {
+    /* Ensure controls are visible on mobile */
+    opacity: 1;
+  }
+  
+  video::-webkit-media-controls-panel {
+    /* Larger touch targets for mobile controls */
+    padding: 4px 8px;
+  }
+}
