@@ -211,7 +211,10 @@ export default {
       } else if (to.name === 'home') {
         this.selectedCategory = ''
         this.searchKeyword = ''
-        this.filteredVideos = []
+        // Clear filtered videos only if it has data to avoid unnecessary re-renders
+        if (this.filteredVideos.length > 0) {
+          this.filteredVideos = []
+        }
         // Reload home data to show all categories
         this.loadHomeData()
       }
@@ -302,11 +305,13 @@ export default {
       // Load mock carousel videos
       this.carouselVideos = getMockTopVideos(videosPerCategory)
       
-      // Load mock videos for ALL categories
-      this.categoryVideos = {}
+      // Build category videos in a temporary object to avoid flickering
+      const newCategoryVideos = {}
       this.categories.forEach(cat => {
-        this.categoryVideos[cat.video_category] = getMockVideosByCategory(cat.video_category, videosPerCategory)
+        newCategoryVideos[cat.video_category] = getMockVideosByCategory(cat.video_category, videosPerCategory)
       })
+      // Assign once to avoid multiple re-renders
+      this.categoryVideos = newCategoryVideos
     },
     
     async loadHomeData() {
@@ -350,11 +355,13 @@ export default {
       })
       
       const results = await Promise.all(categoryPromises)
-      // Reset categoryVideos to ensure fresh data
-      this.categoryVideos = {}
+      // Build category videos in a temporary object to avoid flickering
+      const newCategoryVideos = {}
       results.forEach(({ category, videos }) => {
-        this.categoryVideos[category] = videos
+        newCategoryVideos[category] = videos
       })
+      // Assign once to avoid multiple re-renders
+      this.categoryVideos = newCategoryVideos
     },
     
     async loadFilteredVideos() {
