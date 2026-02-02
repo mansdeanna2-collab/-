@@ -610,26 +610,22 @@ export default {
 }
 
 .tab-btn {
-  padding: 8px 18px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
   color: #aaa;
   font-size: 0.9em;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: color 0.3s;
   white-space: nowrap;
 }
 
 .tab-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
   color: #fff;
 }
 
 .tab-btn.active {
-  background: linear-gradient(90deg, #00d4ff, #7c3aed);
-  border-color: transparent;
-  color: #fff;
+  color: #ff8c00;
 }
 
 /* Main Content */
@@ -778,7 +774,7 @@ export default {
   }
   
   .tab-btn {
-    padding: 6px 14px;
+    padding: 6px 10px;
     font-size: 0.8em;
   }
   
@@ -814,7 +810,7 @@ export default {
   }
   
   .tab-btn {
-    padding: 5px 12px;
+    padding: 5px 8px;
     font-size: 0.75em;
   }
   

@@ -227,7 +227,7 @@ export default {
 .carousel-slide {
   flex: 0 0 100%;
   position: relative;
-  aspect-ratio: 16/9;
+  aspect-ratio: 2.5/1;
   cursor: pointer;
   background: linear-gradient(135deg, #2a2a4a 0%, #1a1a3e 100%);
 }
