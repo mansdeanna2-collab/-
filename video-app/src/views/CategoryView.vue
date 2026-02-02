@@ -62,7 +62,6 @@
 import VideoCard from '@/components/VideoCard.vue'
 import { videoApi } from '@/api'
 import { extractArrayData } from '@/utils/apiUtils'
-import { getMockVideosByCategory } from '@/utils/mockData'
 
 export default {
   name: 'CategoryView',
@@ -78,8 +77,7 @@ export default {
       errorMessage: '',
       page: 1,
       limit: 20,
-      hasMore: true,
-      usingMockData: false
+      hasMore: true
     }
   },
   computed: {
@@ -109,25 +107,18 @@ export default {
       this.error = false
       this.page = 1
       this.videos = []
+      this.usingMockData = false
       
       try {
         const result = await videoApi.getVideosByCategory(this.categoryName, this.limit)
         const videos = extractArrayData(result)
-        
-        if (videos.length === 0) {
-          // Fallback to mock data
-          this.usingMockData = true
-          this.videos = getMockVideosByCategory(this.categoryName, this.limit)
-        } else {
-          this.videos = videos
-        }
-        
+        // Use actual API results - empty array is valid
+        this.videos = videos
         this.hasMore = this.videos.length >= this.limit
       } catch (e) {
         console.error('Load category videos error:', e)
-        // Fallback to mock data
-        this.usingMockData = true
-        this.videos = getMockVideosByCategory(this.categoryName, this.limit)
+        this.error = true
+        this.errorMessage = e.userMessage || '加载失败，请重试'
         this.hasMore = false
       } finally {
         this.loading = false
@@ -136,12 +127,6 @@ export default {
     
     async loadMore() {
       if (this.loading || this.loadingMore) return
-      
-      // Mock data doesn't support pagination
-      if (this.usingMockData) {
-        this.hasMore = false
-        return
-      }
       
       this.loadingMore = true
       this.page++

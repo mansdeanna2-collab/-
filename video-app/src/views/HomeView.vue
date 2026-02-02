@@ -208,7 +208,23 @@ export default {
   },
   computed: {
     // Get current subcategories based on active main category
+    // Use actual API categories instead of hardcoded subcategory mappings
     currentSubcategories() {
+      // Extract category names from API categories
+      // API returns: [{ video_category: 'name', count: N }, ...]
+      const apiCategoryNames = this.categories.map(cat => 
+        cat.video_category || cat.name || cat
+      ).filter(Boolean)
+      
+      // If we have API categories, use them; otherwise fall back to hardcoded mappings
+      if (apiCategoryNames.length > 0) {
+        // For 'recommend' tab, show all categories from API
+        // For other tabs, we can filter or show relevant categories
+        // Since API categories are the real ones, we should use them directly
+        return apiCategoryNames.slice(0, this.$options.MAX_CATEGORIES_COUNT)
+      }
+      
+      // Fallback to hardcoded mappings if API categories not available
       return this.mainCategorySubcategories[this.activeMainCategory] || []
     },
     // All category sections for home view (show max 8 subcategories based on main category)
@@ -443,13 +459,16 @@ export default {
       try {
         const topResult = await videoApi.getTopVideos(videosPerCategory)
         this.carouselVideos = extractArrayData(topResult)
-        // If no videos returned, use mock data
-        if (this.carouselVideos.length === 0) {
+        // Only fallback to mock if in mock mode
+        if (this.carouselVideos.length === 0 && this.usingMockData) {
           this.carouselVideos = getMockTopVideos(videosPerCategory)
         }
       } catch (e) {
         console.error('Load top videos error:', e)
-        this.carouselVideos = getMockTopVideos(videosPerCategory)
+        // Only fallback to mock if in mock mode
+        if (this.usingMockData) {
+          this.carouselVideos = getMockTopVideos(videosPerCategory)
+        }
       }
       
       // Get current subcategories based on active main category
@@ -478,14 +497,15 @@ export default {
         try {
           const result = await videoApi.getVideosByCategory(cat, videosPerCategory)
           const videos = extractArrayData(result)
-          // If no videos returned, use mock data for this category
-          if (videos.length === 0) {
-            return { category: cat, videos: getMockVideosByCategory(cat, videosPerCategory) }
-          }
+          // Return actual API data - empty array is valid if no videos exist for this category
           return { category: cat, videos }
         } catch (e) {
           console.error(`Load category ${cat} error:`, e)
-          return { category: cat, videos: getMockVideosByCategory(cat, videosPerCategory) }
+          // Only fallback to mock data if we're in mock data mode
+          if (this.usingMockData) {
+            return { category: cat, videos: getMockVideosByCategory(cat, videosPerCategory) }
+          }
+          return { category: cat, videos: [] }
         }
       })
       
@@ -524,11 +544,7 @@ export default {
           if (this.searchKeyword) {
             result = await videoApi.searchVideos(this.searchKeyword, this.limit)
             videos = extractArrayData(result)
-            
-            // Fallback to mock if no results
-            if (videos.length === 0) {
-              videos = searchMockVideos(this.searchKeyword, this.limit)
-            }
+            // Don't fallback to mock data - show actual API results
           }
         }
         
@@ -536,9 +552,11 @@ export default {
         this.hasMore = this.filteredVideos.length >= this.limit
       } catch (e) {
         console.error('Load filtered videos error:', e)
-        // Fallback to mock data
-        if (this.searchKeyword) {
+        // Only fallback to mock data if in mock mode
+        if (this.usingMockData && this.searchKeyword) {
           this.filteredVideos = searchMockVideos(this.searchKeyword, this.limit)
+        } else {
+          this.filteredVideos = []
         }
         this.hasMore = false
       } finally {

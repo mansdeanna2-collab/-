@@ -92,3 +92,4 @@ eov
 # Capacitor generated files (android is regenerated)
 # Keep android-native as it's the native project template
 
+data/
