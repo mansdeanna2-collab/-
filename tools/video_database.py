@@ -234,6 +234,19 @@ class VideoDatabase:
             ON videos(play_count)
         ''')
 
+        # 创建导航分类配置表 (Create nav_categories table for global admin settings)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS nav_categories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                category_key TEXT UNIQUE NOT NULL,
+                label TEXT NOT NULL,
+                subcategories TEXT,
+                sort_order INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
         self.connection.commit()
         self._log(f"✅ 数据库初始化完成: {self.db_path}")
 
@@ -616,6 +629,72 @@ class VideoDatabase:
             'category_count': category_count,
             'average_plays': round(avg_plays, 2)
         }
+
+    # ==================== 导航分类管理 (Navigation Categories Management) ====================
+
+    def get_nav_categories(self) -> List[Dict[str, Any]]:
+        """
+        获取所有导航分类配置 (Get all navigation categories)
+
+        Returns:
+            导航分类列表
+        """
+        cursor = self.connection.cursor()
+        cursor.execute('''
+            SELECT category_key, label, subcategories, sort_order
+            FROM nav_categories
+            ORDER BY sort_order ASC, id ASC
+        ''')
+        rows = cursor.fetchall()
+
+        result = []
+        for row in rows:
+            row_dict = dict(row) if isinstance(row, dict) else dict(row)
+            # Parse subcategories from JSON string
+            subcategories_str = row_dict.get('subcategories', '[]')
+            try:
+                subcategories = json.loads(subcategories_str) if subcategories_str else []
+            except (json.JSONDecodeError, TypeError):
+                subcategories = []
+
+            result.append({
+                'key': row_dict['category_key'],
+                'label': row_dict['label'],
+                'subcategories': subcategories
+            })
+
+        return result
+
+    def save_nav_categories(self, categories: List[Dict[str, Any]]) -> bool:
+        """
+        保存导航分类配置 (Save navigation categories - replaces all)
+
+        Args:
+            categories: 导航分类列表 [{ key, label, subcategories }]
+
+        Returns:
+            成功返回True，失败返回False
+        """
+        try:
+            cursor = self.connection.cursor()
+
+            # 删除所有现有分类 (Delete all existing categories)
+            cursor.execute('DELETE FROM nav_categories')
+
+            # 插入新的分类 (Insert new categories)
+            for i, cat in enumerate(categories):
+                subcategories_json = json.dumps(cat.get('subcategories', []), ensure_ascii=False)
+                cursor.execute('''
+                    INSERT INTO nav_categories (category_key, label, subcategories, sort_order)
+                    VALUES (?, ?, ?, ?)
+                ''', (cat['key'], cat['label'], subcategories_json, i))
+
+            self.connection.commit()
+            self._log(f"✅ 保存了 {len(categories)} 个导航分类")
+            return True
+        except Exception as e:
+            logger.error(f"保存导航分类失败: {e}")
+            return False
 
     def close(self) -> None:
         """关闭数据库连接"""

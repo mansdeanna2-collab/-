@@ -141,7 +141,7 @@ import {
   getMockTopVideos,
   searchMockVideos
 } from '@/utils/mockData'
-import { getMainCategories, getSubcategoryMapping } from '@/utils/navCategoryManager'
+import { getMainCategories, getSubcategoryMapping, fetchNavCategories } from '@/utils/navCategoryManager'
 
 export default {
   name: 'HomeView',
@@ -305,8 +305,11 @@ export default {
     this.cleanupIntersectionObserver()
   },
   methods: {
-    // Refresh navigation categories from storage
-    refreshNavCategories() {
+    // Refresh navigation categories from API/cache
+    async refreshNavCategories() {
+      // Fetch fresh categories from API (updates cache)
+      await fetchNavCategories()
+      
       const newMainCategories = getMainCategories()
       const newSubcategories = getSubcategoryMapping()
       
@@ -444,6 +447,13 @@ export default {
       this.visibleCategoriesCount = this.$options.INITIAL_CATEGORIES_COUNT
       
       try {
+        // Fetch navigation categories from database (global settings)
+        // This ensures all users see the same categories configured by admin
+        await fetchNavCategories()
+        // Update local refs with fetched data
+        this.mainCategories = getMainCategories()
+        this.mainCategorySubcategories = getSubcategoryMapping()
+        
         await this.loadCategories()
         
         // If no categories loaded from API, use mock data

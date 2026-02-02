@@ -351,6 +351,97 @@ def get_statistics() -> Tuple[Response, int]:
     return api_response(data=stats)
 
 
+# ==================== 导航分类管理API (Navigation Categories API) ====================
+
+# 默认导航分类配置 (Default navigation categories)
+DEFAULT_NAV_CATEGORIES: List[Dict[str, Any]] = [
+    {
+        'key': 'recommend',
+        'label': '推荐',
+        'subcategories': ['热门推荐', '动作电影', '喜剧片', '科幻大片', '爱情电影', '恐怖惊悚', '纪录片', '动漫']
+    },
+    {
+        'key': 'japan',
+        'label': '日本',
+        'subcategories': ['日本AV', '无码高清', '制服诱惑', '人妻系列', '女优精选', '素人企划', '动漫资源', '经典作品']
+    },
+    {
+        'key': 'domestic',
+        'label': '国产',
+        'subcategories': ['国产自拍', '网红主播', '偷拍私拍', '情侣实录', '素人投稿', '制服诱惑', '熟女人妻', '精品短视频']
+    },
+    {
+        'key': 'anime',
+        'label': '动漫',
+        'subcategories': ['里番动漫', '3D动画', '同人作品', '触手系列', 'NTR剧情', '巨乳萝莉', '校园爱情', '经典番剧']
+    },
+    {
+        'key': 'welfare',
+        'label': '福利',
+        'subcategories': ['写真福利', '丝袜美腿', '性感模特', '大尺度写真', '韩国女团', '日本偶像', '网红热舞', 'ASMR']
+    }
+]
+
+
+@app.route('/api/nav-categories', methods=['GET'])
+@handle_errors
+def get_nav_categories() -> Tuple[Response, int]:
+    """
+    获取导航分类配置 (Get navigation categories)
+    如果数据库中没有配置，返回默认配置
+    """
+    with get_db() as db:
+        categories: List[Dict[str, Any]] = db.get_nav_categories()
+
+    # 如果没有配置，返回默认配置
+    if not categories:
+        categories = DEFAULT_NAV_CATEGORIES
+
+    return api_response(data=categories)
+
+
+@app.route('/api/nav-categories', methods=['POST'])
+@handle_errors
+def save_nav_categories() -> Tuple[Response, int]:
+    """
+    保存导航分类配置 (Save navigation categories)
+    所有用户共享此配置
+    """
+    data = request.get_json()
+    if not data or not isinstance(data, list):
+        return api_response(message="请提供有效的分类配置列表", code=400)
+
+    # 验证数据格式
+    for cat in data:
+        if not isinstance(cat, dict):
+            return api_response(message="分类格式无效", code=400)
+        if not cat.get('key') or not cat.get('label'):
+            return api_response(message="每个分类必须包含 key 和 label", code=400)
+
+    with get_db() as db:
+        success: bool = db.save_nav_categories(data)
+
+    if success:
+        return api_response(message="导航分类配置已保存")
+    else:
+        return api_response(message="保存失败", code=500)
+
+
+@app.route('/api/nav-categories/reset', methods=['POST'])
+@handle_errors
+def reset_nav_categories() -> Tuple[Response, int]:
+    """
+    重置导航分类为默认配置 (Reset navigation categories to default)
+    """
+    with get_db() as db:
+        success: bool = db.save_nav_categories(DEFAULT_NAV_CATEGORIES)
+
+    if success:
+        return api_response(data=DEFAULT_NAV_CATEGORIES, message="已恢复默认配置")
+    else:
+        return api_response(message="重置失败", code=500)
+
+
 # ==================== 错误处理 (Error Handlers) ====================
 
 @app.errorhandler(404)

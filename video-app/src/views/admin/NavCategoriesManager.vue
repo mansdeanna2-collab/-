@@ -219,6 +219,7 @@ import { videoApi } from '@/api'
 import { extractArrayData } from '@/utils/apiUtils'
 import {
   getNavCategories,
+  fetchNavCategories,
   addNavCategory,
   updateNavCategory,
   deleteNavCategory,
@@ -233,6 +234,7 @@ export default {
       navCategories: [],
       availableCategories: [],
       loadingCategories: false,
+      savingData: false,
       
       // Modals
       showAddModal: false,
@@ -262,8 +264,14 @@ export default {
   },
   methods: {
     async loadData() {
-      // Load nav categories from local storage
-      this.navCategories = getNavCategories()
+      // Load nav categories from API (global settings from database)
+      try {
+        this.navCategories = await fetchNavCategories()
+      } catch (e) {
+        console.error('Error loading nav categories:', e)
+        // Fallback to cached/default
+        this.navCategories = getNavCategories()
+      }
       
       // Load available categories from API
       await this.loadAvailableCategories()
@@ -295,34 +303,44 @@ export default {
       this.showEditModal = true
     },
     
-    saveCategory() {
+    async saveCategory() {
       if (!this.formData.key || !this.formData.label) {
         this.showToast('请填写完整信息', 'error')
         return
       }
       
-      if (this.showEditModal) {
-        // Update existing
-        updateNavCategory(this.formData.key, {
-          label: this.formData.label
-        })
-        this.showToast('分类已更新', 'success')
-      } else {
-        // Add new
-        const success = addNavCategory({
-          key: this.formData.key,
-          label: this.formData.label,
-          subcategories: []
-        })
-        if (!success) {
-          this.showToast('分类标识已存在', 'error')
-          return
+      this.savingData = true
+      try {
+        if (this.showEditModal) {
+          // Update existing
+          const success = await updateNavCategory(this.formData.key, {
+            label: this.formData.label
+          })
+          if (success) {
+            this.showToast('分类已更新（已保存到数据库）', 'success')
+          } else {
+            this.showToast('保存失败', 'error')
+            return
+          }
+        } else {
+          // Add new
+          const success = await addNavCategory({
+            key: this.formData.key,
+            label: this.formData.label,
+            subcategories: []
+          })
+          if (!success) {
+            this.showToast('分类标识已存在或保存失败', 'error')
+            return
+          }
+          this.showToast('分类已添加（已保存到数据库）', 'success')
         }
-        this.showToast('分类已添加', 'success')
+        
+        this.navCategories = getNavCategories()
+        this.closeModals()
+      } finally {
+        this.savingData = false
       }
-      
-      this.navCategories = getNavCategories()
-      this.closeModals()
     },
     
     closeModals() {
@@ -337,10 +355,16 @@ export default {
       this.showDeleteModal = true
     },
     
-    doDelete() {
+    async doDelete() {
       if (this.deletingNav) {
-        deleteNavCategory(this.deletingNav.key)
-        this.navCategories = getNavCategories()
+        this.savingData = true
+        try {
+          await deleteNavCategory(this.deletingNav.key)
+          this.navCategories = getNavCategories()
+          this.showToast('分类已删除（已保存到数据库）', 'success')
+        } finally {
+          this.savingData = false
+        }
       }
       this.showDeleteModal = false
       this.deletingNav = null
@@ -362,20 +386,25 @@ export default {
       }
     },
     
-    removeSubcategory(navKey, subName) {
+    async removeSubcategory(navKey, subName) {
       const navCat = this.navCategories.find(n => n.key === navKey)
       if (navCat) {
         const newSubs = navCat.subcategories.filter(s => s !== subName)
-        updateSubcategories(navKey, newSubs)
+        await updateSubcategories(navKey, newSubs)
         this.navCategories = getNavCategories()
       }
     },
     
-    saveSubcategories() {
+    async saveSubcategories() {
       if (this.editingNav) {
-        updateSubcategories(this.editingNav.key, this.selectedSubcategories)
-        this.navCategories = getNavCategories()
-        this.showToast('绑定已保存', 'success')
+        this.savingData = true
+        try {
+          await updateSubcategories(this.editingNav.key, this.selectedSubcategories)
+          this.navCategories = getNavCategories()
+          this.showToast('绑定已保存（已保存到数据库）', 'success')
+        } finally {
+          this.savingData = false
+        }
       }
       this.closeSubcategoriesModal()
     },
@@ -392,11 +421,16 @@ export default {
     },
     
     // Perform reset after confirmation
-    doReset() {
-      resetToDefault()
-      this.navCategories = getNavCategories()
+    async doReset() {
+      this.savingData = true
+      try {
+        await resetToDefault()
+        this.navCategories = getNavCategories()
+        this.showToast('已恢复默认配置（已保存到数据库）', 'success')
+      } finally {
+        this.savingData = false
+      }
       this.showResetModal = false
-      this.showToast('已恢复默认配置', 'success')
     },
     
     // Toast notification

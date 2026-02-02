@@ -271,6 +271,24 @@ export const videoApi = {
     return api.get('/health')
   },
 
+  // ==================== Navigation Categories (Admin Settings) ====================
+
+  // Get navigation categories (global settings from database)
+  getNavCategories() {
+    // Don't cache - admin settings should always be fresh
+    return api.get('/nav-categories')
+  },
+
+  // Save navigation categories (global settings to database)
+  saveNavCategories(categories) {
+    return api.post('/nav-categories', categories)
+  },
+
+  // Reset navigation categories to default
+  resetNavCategories() {
+    return api.post('/nav-categories/reset')
+  },
+
   // Clear all cached data (useful for force refresh)
   clearCache() {
     cache.clear()
