@@ -72,6 +72,14 @@
         <div v-if="loadingMoreCategories" class="loading-spinner"></div>
         <span v-else>向上滑动加载更多分类...</span>
       </div>
+      
+      <!-- No More Content Message -->
+      <div 
+        v-if="!isFilteredView && !hasMoreCategories && visibleCategorySections.length > 0" 
+        class="no-more-content"
+      >
+        <span>暂无更多内容</span>
+      </div>
 
       <!-- Filtered Videos Grid (Search View) -->
       <div v-if="isFilteredView && filteredVideos.length > 0" class="filtered-view">
@@ -181,9 +189,16 @@ export default {
         { key: 'japan', label: '日本' },
         { key: 'domestic', label: '国产' },
         { key: 'anime', label: '动漫' },
-        { key: 'welfare', label: '福利' },
-        { key: 'settings', label: '设置' }
+        { key: 'welfare', label: '福利' }
       ],
+      // Subcategory mappings for each main category (每个大分类对应的子分类)
+      mainCategorySubcategories: {
+        recommend: ['热门推荐', '动作电影', '喜剧片', '科幻大片', '爱情电影', '恐怖惊悚', '纪录片', '动漫'],
+        japan: ['日本AV', '无码高清', '制服诱惑', '人妻系列', '女优精选', '素人企划', '动漫资源', '经典作品'],
+        domestic: ['国产自拍', '网红主播', '偷拍私拍', '情侣实录', '素人投稿', '制服诱惑', '熟女人妻', '精品短视频'],
+        anime: ['里番动漫', '3D动画', '同人作品', '触手系列', 'NTR剧情', '巨乳萝莉', '校园爱情', '经典番剧'],
+        welfare: ['写真福利', '丝袜美腿', '性感模特', '大尺度写真', '韩国女团', '日本偶像', '网红热舞', 'ASMR']
+      },
       activeMainCategory: 'recommend',
       // Visible categories count for lazy loading
       visibleCategoriesCount: 4,
@@ -192,17 +207,23 @@ export default {
     }
   },
   computed: {
-    // All category sections for home view (show max 8 subcategories)
+    // Get current subcategories based on active main category
+    currentSubcategories() {
+      return this.mainCategorySubcategories[this.activeMainCategory] || []
+    },
+    // All category sections for home view (show max 8 subcategories based on main category)
     categorySections() {
       if (this.isFilteredView) {
         return []
       }
-      return this.categories
-        .filter(cat => this.categoryVideos[cat.video_category]?.length > 0)
+      const subcategories = this.currentSubcategories
+      // Filter to show only subcategories that have videos, maintaining the order from subcategories list
+      return subcategories
+        .filter(cat => this.categoryVideos[cat]?.length > 0)
         .slice(0, this.$options.MAX_CATEGORIES_COUNT)
         .map(cat => ({
-          category: cat.video_category,
-          videos: this.categoryVideos[cat.video_category] || []
+          category: cat,
+          videos: this.categoryVideos[cat] || []
         }))
     },
     // Visible category sections (lazy loading - first 4, then 4 more on scroll)
@@ -319,17 +340,24 @@ export default {
     
     // Handle main category tab click
     handleMainCategoryClick(categoryKey) {
-      this.activeMainCategory = categoryKey
-      
-      // Settings tab - navigate to profile/settings
-      if (categoryKey === 'settings') {
-        this.$router.push({ name: 'profile' })
+      // If clicking the same category, do nothing
+      if (this.activeMainCategory === categoryKey) {
         return
       }
       
+      this.activeMainCategory = categoryKey
+      
+      // Scroll to top when switching main categories
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      
       // Reset visible categories count and reload data for the selected main category
       this.visibleCategoriesCount = this.$options.INITIAL_CATEGORIES_COUNT
-      this.loadHomeData()
+      
+      // Show loading state while fetching new category data
+      this.loading = true
+      this.loadHomeData().finally(() => {
+        this.loading = false
+      })
     },
     
     async init() {
@@ -390,10 +418,13 @@ export default {
       // Load mock carousel videos
       this.carouselVideos = getMockTopVideos(videosPerCategory)
       
+      // Get current subcategories based on active main category
+      const subcategories = this.currentSubcategories
+      
       // Build category videos in a temporary object to avoid flickering
       const newCategoryVideos = {}
-      this.categories.forEach(cat => {
-        newCategoryVideos[cat.video_category] = getMockVideosByCategory(cat.video_category, videosPerCategory)
+      subcategories.forEach(cat => {
+        newCategoryVideos[cat] = getMockVideosByCategory(cat, videosPerCategory)
       })
       // Assign once to avoid multiple re-renders
       this.categoryVideos = newCategoryVideos
@@ -421,31 +452,57 @@ export default {
         this.carouselVideos = getMockTopVideos(videosPerCategory)
       }
       
-      // Load videos for ALL categories in parallel (show all categories with 5 videos each)
-      const categoriesToLoad = this.categories
+      // Get current subcategories based on active main category
+      const subcategories = this.currentSubcategories
+      // Store the active category at the start to detect race conditions
+      const currentMainCategory = this.activeMainCategory
       
-      const categoryPromises = categoriesToLoad.map(async (cat) => {
+      // Clear category videos before loading new data for this main category
+      this.categoryVideos = {}
+      
+      // First, load only the first 4 categories (visible categories)
+      const firstBatchCategories = subcategories.slice(0, this.$options.INITIAL_CATEGORIES_COUNT)
+      await this.loadCategoriesData(firstBatchCategories, videosPerCategory, currentMainCategory)
+      
+      // Then, load remaining categories in background (lazy loading)
+      const remainingCategories = subcategories.slice(this.$options.INITIAL_CATEGORIES_COUNT, this.$options.MAX_CATEGORIES_COUNT)
+      if (remainingCategories.length > 0) {
+        // Load remaining categories asynchronously without blocking UI
+        this.loadCategoriesData(remainingCategories, videosPerCategory, currentMainCategory)
+      }
+    },
+    
+    // Helper method to load videos for specific categories
+    async loadCategoriesData(categoryList, videosPerCategory, expectedMainCategory) {
+      const categoryPromises = categoryList.map(async (cat) => {
         try {
-          const result = await videoApi.getVideosByCategory(cat.video_category, videosPerCategory)
+          const result = await videoApi.getVideosByCategory(cat, videosPerCategory)
           const videos = extractArrayData(result)
           // If no videos returned, use mock data for this category
           if (videos.length === 0) {
-            return { category: cat.video_category, videos: getMockVideosByCategory(cat.video_category, videosPerCategory) }
+            return { category: cat, videos: getMockVideosByCategory(cat, videosPerCategory) }
           }
-          return { category: cat.video_category, videos }
+          return { category: cat, videos }
         } catch (e) {
-          console.error(`Load category ${cat.video_category} error:`, e)
-          return { category: cat.video_category, videos: getMockVideosByCategory(cat.video_category, videosPerCategory) }
+          console.error(`Load category ${cat} error:`, e)
+          return { category: cat, videos: getMockVideosByCategory(cat, videosPerCategory) }
         }
       })
       
       const results = await Promise.all(categoryPromises)
-      // Build category videos in a temporary object to avoid flickering
-      const newCategoryVideos = {}
+      
+      // Check if the active main category has changed during loading
+      // If so, discard the results to avoid race condition
+      if (expectedMainCategory !== this.activeMainCategory) {
+        console.log('Discarding stale category data - main category changed')
+        return
+      }
+      
+      // Update category videos by creating new object to ensure reactivity
+      const newCategoryVideos = { ...this.categoryVideos }
       results.forEach(({ category, videos }) => {
         newCategoryVideos[category] = videos
       })
-      // Assign once to avoid multiple re-renders
       this.categoryVideos = newCategoryVideos
     },
     
@@ -783,6 +840,18 @@ export default {
   padding: 20px;
   color: #888;
   font-size: 0.9em;
+}
+
+/* No More Content Message */
+.no-more-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 25px 20px;
+  color: #666;
+  font-size: 0.9em;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 10px;
 }
 
 /* Filtered View Styles */
