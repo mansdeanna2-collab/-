@@ -211,10 +211,12 @@ export default {
       } else if (to.name === 'home') {
         this.selectedCategory = ''
         this.searchKeyword = ''
-        // Only reload if no data exists (keep-alive should preserve data)
-        if (this.categories.length === 0) {
-          this.init()
+        // Clear filtered videos only if it has data to avoid unnecessary re-renders
+        if (this.filteredVideos.length > 0) {
+          this.filteredVideos = []
         }
+        // Reload home data to show all categories
+        this.loadHomeData()
       }
     }
   },
@@ -303,11 +305,13 @@ export default {
       // Load mock carousel videos
       this.carouselVideos = getMockTopVideos(videosPerCategory)
       
-      // Load mock videos for each category
-      const categoriesToLoad = this.categories.slice(0, videosPerCategory)
-      categoriesToLoad.forEach(cat => {
-        this.categoryVideos[cat.video_category] = getMockVideosByCategory(cat.video_category, videosPerCategory)
+      // Build category videos in a temporary object to avoid flickering
+      const newCategoryVideos = {}
+      this.categories.forEach(cat => {
+        newCategoryVideos[cat.video_category] = getMockVideosByCategory(cat.video_category, videosPerCategory)
       })
+      // Assign once to avoid multiple re-renders
+      this.categoryVideos = newCategoryVideos
     },
     
     async loadHomeData() {
@@ -332,8 +336,8 @@ export default {
         this.carouselVideos = getMockTopVideos(videosPerCategory)
       }
       
-      // Load videos for each category in parallel (first 5 categories)
-      const categoriesToLoad = this.categories.slice(0, videosPerCategory)
+      // Load videos for ALL categories in parallel (show all categories with 5 videos each)
+      const categoriesToLoad = this.categories
       
       const categoryPromises = categoriesToLoad.map(async (cat) => {
         try {
@@ -351,9 +355,13 @@ export default {
       })
       
       const results = await Promise.all(categoryPromises)
+      // Build category videos in a temporary object to avoid flickering
+      const newCategoryVideos = {}
       results.forEach(({ category, videos }) => {
-        this.categoryVideos[category] = videos
+        newCategoryVideos[category] = videos
       })
+      // Assign once to avoid multiple re-renders
+      this.categoryVideos = newCategoryVideos
     },
     
     async loadFilteredVideos() {
@@ -392,11 +400,6 @@ export default {
         
         this.filteredVideos = videos
         this.hasMore = this.filteredVideos.length >= this.limit
-        
-        // Update category sections to show filtered results
-        if (this.selectedCategory) {
-          this.categoryVideos = { [this.selectedCategory]: this.filteredVideos }
-        }
       } catch (e) {
         console.error('Load filtered videos error:', e)
         // Fallback to mock data
@@ -406,9 +409,6 @@ export default {
           this.filteredVideos = getMockVideosByCategory(this.selectedCategory, this.limit)
         }
         this.hasMore = false
-        if (this.selectedCategory) {
-          this.categoryVideos = { [this.selectedCategory]: this.filteredVideos }
-        }
       } finally {
         this.loading = false
       }
@@ -438,10 +438,6 @@ export default {
         const newVideos = extractArrayData(result)
         this.filteredVideos = [...this.filteredVideos, ...newVideos]
         this.hasMore = newVideos.length >= this.limit
-        
-        if (this.selectedCategory) {
-          this.categoryVideos[this.selectedCategory] = this.filteredVideos
-        }
       } catch (e) {
         console.error('Load more error:', e)
       } finally {
@@ -614,26 +610,22 @@ export default {
 }
 
 .tab-btn {
-  padding: 8px 18px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
   color: #aaa;
   font-size: 0.9em;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: color 0.3s;
   white-space: nowrap;
 }
 
 .tab-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
   color: #fff;
 }
 
 .tab-btn.active {
-  background: linear-gradient(90deg, #00d4ff, #7c3aed);
-  border-color: transparent;
-  color: #fff;
+  color: #ff8c00;
 }
 
 /* Main Content */
@@ -782,7 +774,7 @@ export default {
   }
   
   .tab-btn {
-    padding: 6px 14px;
+    padding: 6px 10px;
     font-size: 0.8em;
   }
   
@@ -818,7 +810,7 @@ export default {
   }
   
   .tab-btn {
-    padding: 5px 12px;
+    padding: 5px 8px;
     font-size: 0.75em;
   }
   

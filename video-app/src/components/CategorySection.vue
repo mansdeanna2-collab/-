@@ -2,16 +2,6 @@
   <div class="category-section">
     <div class="section-header">
       <h2 class="section-title">{{ title }}</h2>
-      <div class="section-actions">
-        <button class="action-btn refresh-btn" @click="$emit('refresh')">
-          <span class="refresh-icon">🔄</span>
-          换一换
-        </button>
-        <button class="action-btn more-btn" @click="$emit('more')">
-          查看更多
-          <span class="arrow-icon">→</span>
-        </button>
-      </div>
     </div>
     
     <div class="videos-grid" v-if="videos.length > 0">
@@ -69,6 +59,18 @@
           </div>
         </div>
       </div>
+    </div>
+    
+    <!-- Action buttons below videos -->
+    <div class="section-actions" v-if="videos.length > 0">
+      <button class="action-btn refresh-btn" @click="$emit('refresh')">
+        <span class="refresh-icon">🔄</span>
+        换一换
+      </button>
+      <button class="action-btn more-btn" @click="$emit('more')">
+        查看更多
+        <span class="arrow-icon">→</span>
+      </button>
     </div>
     
     <!-- Empty state -->
@@ -164,7 +166,7 @@ export default {
 
 .section-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   margin-bottom: 15px;
   padding: 0 5px;
@@ -178,28 +180,44 @@ export default {
 
 .section-actions {
   display: flex;
-  gap: 15px;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 15px;
+  padding: 10px 0;
 }
 
 .action-btn {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px 12px;
-  background: transparent;
-  border: none;
-  color: #888;
-  font-size: 0.85em;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  color: #aaa;
+  font-size: 0.9em;
   cursor: pointer;
-  transition: color 0.3s;
+  transition: all 0.3s;
+  min-width: 100px;
 }
 
 .action-btn:hover {
   color: #00d4ff;
+  background: rgba(0, 212, 255, 0.15);
+  border-color: rgba(0, 212, 255, 0.3);
+}
+
+.action-btn:active {
+  transform: scale(0.98);
 }
 
 .refresh-icon {
   font-size: 0.9em;
+}
+
+.arrow-icon {
+  font-size: 1em;
 }
 
 .videos-grid {
@@ -373,12 +391,15 @@ export default {
   }
   
   .section-actions {
-    gap: 8px;
+    gap: 12px;
+    margin-top: 12px;
+    padding: 8px 0;
   }
   
   .action-btn {
-    padding: 4px 8px;
-    font-size: 0.75em;
+    padding: 8px 14px;
+    font-size: 0.8em;
+    min-width: 85px;
   }
   
   .video-large {
