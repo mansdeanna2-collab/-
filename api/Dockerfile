@@ -20,11 +20,11 @@ COPY api_server.py .
 RUN mkdir -p /app/data
 
 # Expose port
-EXPOSE 8899
+EXPOSE 5000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8899/api/health || exit 1
+    CMD curl -f http://localhost:5000/api/health || exit 1
 
 # Run the application
-CMD ["python", "api_server.py", "--host", "0.0.0.0", "--port", "8899", "--sqlite"]
+CMD ["python", "api_server.py", "--host", "0.0.0.0", "--port", "5000", "--sqlite"]

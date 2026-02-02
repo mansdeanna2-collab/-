@@ -9,7 +9,7 @@ services:
     container_name: video-api
     restart: unless-stopped
     ports:
-      - "8899:8899"
+      - "5000:5000"
     volumes:
       - video-data:/app/data
       - ./tools/video_database.py:/app/video_database.py:ro
@@ -17,7 +17,7 @@ services:
       - USE_MYSQL=false
       - PYTHONUNBUFFERED=1
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8899/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -34,6 +34,21 @@ services:
     restart: unless-stopped
     ports:
       - "8080:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - video-network
+
+  # 管理后台前端服务 (Admin Frontend on port 8899)
+  admin:
+    build:
+      context: ./video-app
+      dockerfile: Dockerfile.admin
+    container_name: video-admin
+    restart: unless-stopped
+    ports:
+      - "8899:80"
     depends_on:
       api:
         condition: service_healthy
