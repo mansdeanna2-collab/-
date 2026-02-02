@@ -52,7 +52,7 @@
         @click="playVideo"
       />
 
-      <!-- Category Sections -->
+      <!-- Category Sections (Home View) -->
       <CategorySection
         v-for="cat in categorySections"
         :key="cat.category"
@@ -62,6 +62,31 @@
         @refresh="refreshCategory(cat.category)"
         @more="viewMoreCategory(cat.category)"
       />
+
+      <!-- Filtered Videos Grid (Category/Search View) -->
+      <div v-if="isFilteredView && filteredVideos.length > 0" class="filtered-view">
+        <div class="filtered-header">
+          <h2 class="filtered-title">
+            {{ searchKeyword ? `"${searchKeyword}" 的搜索结果` : selectedCategory }}
+          </h2>
+          <span class="filtered-count">共 {{ filteredVideos.length }} 个视频</span>
+        </div>
+        <div class="videos-grid">
+          <VideoCard
+            v-for="video in filteredVideos"
+            :key="video.video_id"
+            :video="video"
+            @click="playVideo"
+          />
+        </div>
+      </div>
+
+      <!-- Empty State for Filtered View -->
+      <div v-if="isFilteredView && filteredVideos.length === 0 && !loading" class="empty-filtered">
+        <div class="empty-icon">🔍</div>
+        <p>{{ searchKeyword ? '未找到相关视频' : '该分类暂无视频' }}</p>
+        <button class="btn btn-primary" @click="goHome">返回首页</button>
+      </div>
 
       <!-- Load More (for when viewing a single category or search results) -->
       <div v-if="isFilteredView && (hasMore || loadingMore)" class="load-more">
@@ -84,6 +109,7 @@
 <script>
 import Carousel from '@/components/Carousel.vue'
 import CategorySection from '@/components/CategorySection.vue'
+import VideoCard from '@/components/VideoCard.vue'
 import { videoApi } from '@/api'
 import { 
   saveScrollPosition, 
@@ -103,7 +129,8 @@ export default {
   name: 'HomeView',
   components: {
     Carousel,
-    CategorySection
+    CategorySection,
+    VideoCard
   },
   // Constants
   MAX_REFRESH_OFFSET: 20,
@@ -475,6 +502,12 @@ export default {
       this.$router.push({ name: 'category', params: { category } })
     },
     
+    goHome() {
+      this.selectedCategory = ''
+      this.searchKeyword = ''
+      this.$router.push({ name: 'home' })
+    },
+    
     playVideo(video) {
       this.$router.push({ name: 'player', params: { id: video.video_id } })
     }
@@ -651,6 +684,55 @@ export default {
   border-width: 2px;
 }
 
+/* Filtered View Styles */
+.filtered-view {
+  margin-top: 15px;
+}
+
+.filtered-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding: 0 5px;
+}
+
+.filtered-title {
+  font-size: 1.2em;
+  font-weight: 600;
+  color: #fff;
+}
+
+.filtered-count {
+  font-size: 0.9em;
+  color: #888;
+}
+
+.videos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.empty-filtered {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.empty-filtered .empty-icon {
+  font-size: 4em;
+  margin-bottom: 15px;
+}
+
+.empty-filtered p {
+  color: #888;
+  margin-bottom: 20px;
+}
+
 /* Bottom spacer for nav bar */
 .bottom-spacer {
   height: 70px;
@@ -703,6 +785,21 @@ export default {
     padding: 6px 14px;
     font-size: 0.8em;
   }
+  
+  .videos-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+  }
+  
+  .filtered-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+  }
+  
+  .filtered-title {
+    font-size: 1.1em;
+  }
 }
 
 /* Small mobile devices */
@@ -723,6 +820,14 @@ export default {
   .tab-btn {
     padding: 5px 12px;
     font-size: 0.75em;
+  }
+  
+  .videos-grid {
+    gap: 10px;
+  }
+  
+  .filtered-title {
+    font-size: 1em;
   }
   
   .bottom-spacer {
