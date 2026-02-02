@@ -41,6 +41,7 @@
 
 <script>
 import { formatImageUrl, loadImageWithBase64Detection } from '@/utils/imageUtils'
+import { formatPlayCount } from '@/utils/formatUtils'
 
 export default {
   name: 'VideoCard',
@@ -79,12 +80,8 @@ export default {
         this.$refs.placeholder.style.display = 'flex'
       }
     },
-    formatPlayCount(count) {
-      if (count >= 10000) {
-        return (count / 10000).toFixed(1) + '万'
-      }
-      return count.toString()
-    },
+    // Use shared formatPlayCount from formatUtils
+    formatPlayCount,
     async loadImage() {
       const url = this.video?.video_image
       if (!url || !this.$refs.imgElement) return

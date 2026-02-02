@@ -8,7 +8,7 @@
  * @returns {string} - Formatted play count string
  */
 export function formatPlayCount(count) {
-  if (!count || count <= 0) return '0'
+  if (!count || count <= 0 || !isFinite(count)) return '0'
   if (count >= 100000000) {
     return (count / 100000000).toFixed(1) + '亿'
   }

@@ -74,6 +74,8 @@
 import VideoPlayer from '@/components/VideoPlayer.vue'
 import VideoCard from '@/components/VideoCard.vue'
 import { videoApi } from '@/api'
+import { formatPlayCount } from '@/utils/formatUtils'
+import { extractArrayData, extractObjectData } from '@/utils/apiUtils'
 
 export default {
   name: 'PlayerView',
@@ -114,7 +116,7 @@ export default {
       
       try {
         const result = await videoApi.getVideo(videoId)
-        this.video = result.data || result || {}
+        this.video = extractObjectData(result)
         
         if (!this.video.video_id) {
           this.error = true
@@ -138,7 +140,7 @@ export default {
     async loadRelatedVideos() {
       try {
         const result = await videoApi.getVideosByCategory(this.video.video_category, 6)
-        const videos = result.data || result || []
+        const videos = extractArrayData(result)
         // Filter out current video
         this.relatedVideos = videos.filter(v => v.video_id !== this.video.video_id)
       } catch (e) {
@@ -147,10 +149,12 @@ export default {
     },
     
     async onPlay() {
-      // Update play count
+      // Update play count with race condition protection
+      const videoId = this.video.video_id
       try {
-        await videoApi.updatePlayCount(this.video.video_id)
-        if (this.video.play_count) {
+        await videoApi.updatePlayCount(videoId)
+        // Only increment if we're still on the same video
+        if (this.video.video_id === videoId && this.video.play_count) {
           this.video.play_count++
         }
       } catch (e) {
@@ -174,12 +178,8 @@ export default {
       }
     },
     
-    formatPlayCount(count) {
-      if (count >= 10000) {
-        return (count / 10000).toFixed(1) + '万'
-      }
-      return count.toString()
-    }
+    // Use shared formatPlayCount from formatUtils
+    formatPlayCount
   }
 }
 </script>

@@ -91,6 +91,7 @@ import {
   getCurrentScrollPosition,
   hasScrollPosition
 } from '@/utils/scrollManager'
+import { extractArrayData } from '@/utils/apiUtils'
 
 export default {
   name: 'HomeView',
@@ -244,7 +245,7 @@ export default {
     async loadCategories() {
       try {
         const result = await videoApi.getCategories()
-        this.categories = result.data || result || []
+        this.categories = extractArrayData(result)
       } catch (e) {
         console.error('Load categories error:', e)
       }
@@ -256,7 +257,7 @@ export default {
       // Load carousel videos (top videos)
       try {
         const topResult = await videoApi.getTopVideos(videosPerCategory)
-        this.carouselVideos = topResult.data || topResult || []
+        this.carouselVideos = extractArrayData(topResult)
       } catch (e) {
         console.error('Load top videos error:', e)
       }
@@ -267,7 +268,7 @@ export default {
       const categoryPromises = categoriesToLoad.map(async (cat) => {
         try {
           const result = await videoApi.getVideosByCategory(cat.video_category, videosPerCategory)
-          return { category: cat.video_category, videos: result.data || result || [] }
+          return { category: cat.video_category, videos: extractArrayData(result) }
         } catch (e) {
           console.error(`Load category ${cat.video_category} error:`, e)
           return { category: cat.video_category, videos: [] }
@@ -292,7 +293,7 @@ export default {
           result = await videoApi.getVideosByCategory(this.selectedCategory, this.limit)
         }
         
-        this.filteredVideos = result?.data || result || []
+        this.filteredVideos = extractArrayData(result)
         this.hasMore = this.filteredVideos.length >= this.limit
         
         // Update category sections to show filtered results
@@ -321,7 +322,7 @@ export default {
           result = await videoApi.getVideosByCategory(this.selectedCategory, this.limit, offset)
         }
         
-        const newVideos = result?.data || result || []
+        const newVideos = extractArrayData(result)
         this.filteredVideos = [...this.filteredVideos, ...newVideos]
         this.hasMore = newVideos.length >= this.limit
         
@@ -378,7 +379,7 @@ export default {
         // Get random offset for variety
         const randomOffset = Math.floor(Math.random() * this.$options.MAX_REFRESH_OFFSET)
         const result = await videoApi.getVideosByCategory(category, this.$options.VIDEOS_PER_CATEGORY, randomOffset)
-        this.categoryVideos[category] = result.data || result || []
+        this.categoryVideos[category] = extractArrayData(result)
       } catch (e) {
         console.error(`Refresh category ${category} error:`, e)
       }

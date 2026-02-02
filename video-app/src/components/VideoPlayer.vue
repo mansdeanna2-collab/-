@@ -147,7 +147,9 @@ export default {
       // Slow loading threshold in milliseconds (5 seconds)
       slowLoadingThreshold: 5000,
       // Track source for retry validation (prevent retrying wrong source)
-      retrySourceUrl: ''
+      retrySourceUrl: '',
+      // Retry timeout for cleanup
+      retryTimeout: null
     }
   },
   watch: {
@@ -177,6 +179,11 @@ export default {
     }
     // Clear slow loading timeout
     this.clearSlowLoadingTimeout()
+    // Clear retry timeout to prevent memory leak
+    if (this.retryTimeout) {
+      clearTimeout(this.retryTimeout)
+      this.retryTimeout = null
+    }
   },
   methods: {
     // Clear slow loading detection timeout
@@ -324,7 +331,12 @@ export default {
         const delay = Math.pow(2, this.retryCount - 1) * 1000
         const srcAtError = this.currentSrc
         
-        setTimeout(() => {
+        // Clear any existing retry timeout
+        if (this.retryTimeout) {
+          clearTimeout(this.retryTimeout)
+        }
+        
+        this.retryTimeout = setTimeout(() => {
           // Skip if source changed (user loaded different video)
           if (this.currentSrc !== srcAtError) return
           
