@@ -16,7 +16,7 @@
         webkit-playsinline
         x5-video-player-type="h5"
         x5-video-player-fullscreen="true"
-        x5-video-orientation="portraint"
+        x5-video-orientation="portrait"
         x-webkit-airplay="allow"
         preload="metadata"
         crossorigin="anonymous"
