@@ -6,6 +6,9 @@ import DarkWebView from '@/views/DarkWebView.vue'
 import LiveView from '@/views/LiveView.vue'
 import GamesView from '@/views/GamesView.vue'
 import ProfileView from '@/views/ProfileView.vue'
+import AdminLayout from '@/views/admin/AdminLayout.vue'
+import AdminDashboard from '@/views/admin/AdminDashboard.vue'
+import NavCategoriesManager from '@/views/admin/NavCategoriesManager.vue'
 import { isScrollRestoring } from '@/utils/scrollManager'
 
 const routes = [
@@ -56,6 +59,30 @@ const routes = [
     name: 'profile',
     component: ProfileView,
     meta: { title: '个人中心' }
+  },
+  // Admin Routes
+  {
+    path: '/admin',
+    component: AdminLayout,
+    meta: { title: '管理后台' },
+    children: [
+      {
+        path: '',
+        redirect: '/admin/dashboard'
+      },
+      {
+        path: 'dashboard',
+        name: 'admin-dashboard',
+        component: AdminDashboard,
+        meta: { title: '仪表盘' }
+      },
+      {
+        path: 'nav-categories',
+        name: 'admin-nav-categories',
+        component: NavCategoriesManager,
+        meta: { title: '导航分类管理' }
+      }
+    ]
   }
 ]
 

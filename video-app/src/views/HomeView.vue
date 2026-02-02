@@ -141,6 +141,7 @@ import {
   getMockTopVideos,
   searchMockVideos
 } from '@/utils/mockData'
+import { getMainCategories, getSubcategoryMapping } from '@/utils/navCategoryManager'
 
 export default {
   name: 'HomeView',
@@ -183,22 +184,10 @@ export default {
       filteredVideos: [],
       // Flag to indicate using mock data
       usingMockData: false,
-      // Main category tabs (大分类)
-      mainCategories: [
-        { key: 'recommend', label: '推荐' },
-        { key: 'japan', label: '日本' },
-        { key: 'domestic', label: '国产' },
-        { key: 'anime', label: '动漫' },
-        { key: 'welfare', label: '福利' }
-      ],
+      // Main category tabs (大分类) - loaded from navCategoryManager
+      mainCategories: getMainCategories(),
       // Subcategory mappings for each main category (每个大分类对应的子分类)
-      mainCategorySubcategories: {
-        recommend: ['热门推荐', '动作电影', '喜剧片', '科幻大片', '爱情电影', '恐怖惊悚', '纪录片', '动漫'],
-        japan: ['日本AV', '无码高清', '制服诱惑', '人妻系列', '女优精选', '素人企划', '动漫资源', '经典作品'],
-        domestic: ['国产自拍', '网红主播', '偷拍私拍', '情侣实录', '素人投稿', '制服诱惑', '熟女人妻', '精品短视频'],
-        anime: ['里番动漫', '3D动画', '同人作品', '触手系列', 'NTR剧情', '巨乳萝莉', '校园爱情', '经典番剧'],
-        welfare: ['写真福利', '丝袜美腿', '性感模特', '大尺度写真', '韩国女团', '日本偶像', '网红热舞', 'ASMR']
-      },
+      mainCategorySubcategories: getSubcategoryMapping(),
       activeMainCategory: 'recommend',
       // Visible categories count for lazy loading
       visibleCategoriesCount: 4,
@@ -285,6 +274,8 @@ export default {
     this.$nextTick(() => {
       this.setupIntersectionObserver()
     })
+    // Reload navigation categories from storage (in case admin changed them)
+    this.refreshNavCategories()
   },
   deactivated() {
     const routePath = this.$route.fullPath
@@ -300,6 +291,29 @@ export default {
     this.cleanupIntersectionObserver()
   },
   methods: {
+    // Refresh navigation categories from storage
+    refreshNavCategories() {
+      const newMainCategories = getMainCategories()
+      const newSubcategories = getSubcategoryMapping()
+      
+      // Check if categories have changed
+      const hasChanged = JSON.stringify(this.mainCategories) !== JSON.stringify(newMainCategories) ||
+                         JSON.stringify(this.mainCategorySubcategories) !== JSON.stringify(newSubcategories)
+      
+      if (hasChanged) {
+        this.mainCategories = newMainCategories
+        this.mainCategorySubcategories = newSubcategories
+        
+        // If current active category no longer exists, switch to first available
+        if (newMainCategories.length > 0 && !newMainCategories.find(c => c.key === this.activeMainCategory)) {
+          this.activeMainCategory = newMainCategories[0].key
+        }
+        
+        // Reload home data with new categories
+        this.loadHomeData()
+      }
+    },
+    
     // Setup intersection observer for lazy loading more categories
     setupIntersectionObserver() {
       if (this.$refs.loadMoreTrigger && !this.intersectionObserver) {

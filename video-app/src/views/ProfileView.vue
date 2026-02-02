@@ -33,6 +33,11 @@
     </div>
     
     <ul class="menu-list">
+      <li class="menu-item" @click="openAdmin">
+        <span class="menu-icon">🛠️</span>
+        <span class="menu-text">管理后台</span>
+        <span class="menu-arrow">→</span>
+      </li>
       <li class="menu-item" @click="showWatchHistory">
         <span class="menu-icon">📜</span>
         <span class="menu-text">观看历史</span>
@@ -133,6 +138,9 @@ export default {
     },
     showCoins() {
       this.showToast('金币商城即将上线')
+    },
+    openAdmin() {
+      this.$router.push('/admin')
     },
     openSettings() {
       this.showToast('设置功能即将上线')
