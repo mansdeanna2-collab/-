@@ -1,6 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '@/views/HomeView.vue'
 import PlayerView from '@/views/PlayerView.vue'
+import DarkWebView from '@/views/DarkWebView.vue'
+import LiveView from '@/views/LiveView.vue'
+import GamesView from '@/views/GamesView.vue'
+import ProfileView from '@/views/ProfileView.vue'
 import { isScrollRestoring } from '@/utils/scrollManager'
 
 const routes = [
@@ -27,6 +31,30 @@ const routes = [
     name: 'search',
     component: HomeView,
     meta: { title: '搜索结果' }
+  },
+  {
+    path: '/darkweb',
+    name: 'darkweb',
+    component: DarkWebView,
+    meta: { title: '暗网专区' }
+  },
+  {
+    path: '/live',
+    name: 'live',
+    component: LiveView,
+    meta: { title: '直播中心' }
+  },
+  {
+    path: '/games',
+    name: 'games',
+    component: GamesView,
+    meta: { title: '游戏专区' }
+  },
+  {
+    path: '/profile',
+    name: 'profile',
+    component: ProfileView,
+    meta: { title: '个人中心' }
   }
 ]
 
@@ -70,7 +98,7 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
-  document.title = to.meta.title ? `${to.meta.title} - 视频播放器` : '视频播放器'
+  document.title = to.meta.title ? `${to.meta.title} - 悟空视频` : '悟空视频'
   next()
 })
 

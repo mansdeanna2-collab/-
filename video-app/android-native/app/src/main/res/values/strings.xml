@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">视频播放器</string>
-    <string name="app_title">🎬 视频播放器</string>
+    <string name="app_name">悟空视频</string>
+    <string name="app_title">🎬 悟空视频</string>
     
     <!-- Search -->
     <string name="search_hint">搜索视频…</string>

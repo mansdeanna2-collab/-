@@ -415,8 +415,15 @@ public class PlayerActivity extends AppCompatActivity {
                     }
                 };
 
+                // Build ExoPlayer with enhanced codec and format support
                 player = new ExoPlayer.Builder(this)
                         .setHandleAudioBecomingNoisy(true)
+                        // Set video scaling mode for better compatibility
+                        .setVideoScalingMode(androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING)
+                        // Enable decoder fallback for better hardware/software codec support
+                        .setRenderersFactory(new androidx.media3.exoplayer.DefaultRenderersFactory(this)
+                                .setEnableDecoderFallback(true)
+                                .setExtensionRendererMode(androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER))
                         .build();
 
                 binding.playerView.setPlayer(player);

@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.videoapp.player',
-  appName: '视频播放器',
+  appId: 'com.videoapp.wuka',
+  appName: '悟空视频',
   webDir: 'dist',
   server: {
     // Use https scheme for Android (required for modern security)
