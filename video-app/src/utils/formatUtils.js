@@ -38,8 +38,9 @@ export function formatDuration(seconds) {
 
 /**
  * Format relative time (e.g., "2 hours ago", "3 days ago")
+ * Note: Uses approximate day counts (30 days/month, 365 days/year) for simplicity
  * @param {string|Date} dateInput - Date string or Date object
- * @returns {string} - Relative time string in Chinese
+ * @returns {string} - Relative time string in Chinese, empty string for invalid/future dates
  */
 export function formatRelativeTime(dateInput) {
   if (!dateInput) return ''
@@ -49,10 +50,15 @@ export function formatRelativeTime(dateInput) {
   
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
+  
+  // Handle future dates - return empty string
+  if (diffMs < 0) return ''
+  
   const diffSeconds = Math.floor(diffMs / 1000)
   const diffMinutes = Math.floor(diffSeconds / 60)
   const diffHours = Math.floor(diffMinutes / 60)
   const diffDays = Math.floor(diffHours / 24)
+  // Using approximate values: 30 days/month, 365 days/year
   const diffMonths = Math.floor(diffDays / 30)
   const diffYears = Math.floor(diffDays / 365)
   

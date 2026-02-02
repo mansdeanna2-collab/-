@@ -80,7 +80,8 @@ export default {
   computed: {
     trackStyle() {
       const baseTranslate = -this.currentIndex * 100
-      const swipeOffset = this.isSwiping ? (this.touchDeltaX / this.$refs.container?.offsetWidth || 1) * 100 : 0
+      const containerWidth = this.$refs.container?.offsetWidth || 1
+      const swipeOffset = this.isSwiping ? (this.touchDeltaX / containerWidth) * 100 : 0
       return {
         transform: `translateX(calc(${baseTranslate}% + ${swipeOffset}%))`,
         transition: this.isSwiping ? 'none' : 'transform 0.5s ease'
