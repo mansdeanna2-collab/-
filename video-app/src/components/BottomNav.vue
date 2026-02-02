@@ -1,5 +1,5 @@
 <template>
-  <nav class="bottom-nav" aria-label="底部导航">
+  <nav class="bottom-nav" aria-label="Bottom navigation / 底部导航">
     <ul class="nav-items">
       <li v-for="item in navItems" :key="item.path" class="nav-item-wrapper">
         <router-link 
