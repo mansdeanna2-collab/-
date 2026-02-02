@@ -186,6 +186,31 @@
         </div>
       </div>
     </div>
+    
+    <!-- Reset Confirmation Modal -->
+    <div v-if="showResetModal" class="modal-overlay" @click.self="showResetModal = false">
+      <div class="modal modal-small">
+        <div class="modal-header">
+          <h3>确认恢复默认</h3>
+          <button class="close-btn" @click="showResetModal = false">×</button>
+        </div>
+        <div class="modal-body">
+          <p>确定要恢复默认导航分类配置吗？</p>
+          <p class="warning-text">当前配置将会丢失！</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="showResetModal = false">取消</button>
+          <button class="btn btn-danger" @click="doReset">确认恢复</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Toast Notification -->
+    <transition name="toast">
+      <div v-if="toastMessage" class="toast-message" :class="toastType">
+        {{ toastMessage }}
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -214,6 +239,7 @@ export default {
       showEditModal: false,
       showSubcategoriesModal: false,
       showDeleteModal: false,
+      showResetModal: false,
       
       // Form data
       formData: {
@@ -224,7 +250,11 @@ export default {
       // Editing states
       editingNav: null,
       deletingNav: null,
-      selectedSubcategories: []
+      selectedSubcategories: [],
+      
+      // Toast notification
+      toastMessage: '',
+      toastType: ''
     }
   },
   mounted() {
@@ -267,7 +297,7 @@ export default {
     
     saveCategory() {
       if (!this.formData.key || !this.formData.label) {
-        window.alert('请填写完整信息')
+        this.showToast('请填写完整信息', 'error')
         return
       }
       
@@ -276,6 +306,7 @@ export default {
         updateNavCategory(this.formData.key, {
           label: this.formData.label
         })
+        this.showToast('分类已更新', 'success')
       } else {
         // Add new
         const success = addNavCategory({
@@ -284,9 +315,10 @@ export default {
           subcategories: []
         })
         if (!success) {
-          window.alert('分类标识已存在')
+          this.showToast('分类标识已存在', 'error')
           return
         }
+        this.showToast('分类已添加', 'success')
       }
       
       this.navCategories = getNavCategories()
@@ -343,6 +375,7 @@ export default {
       if (this.editingNav) {
         updateSubcategories(this.editingNav.key, this.selectedSubcategories)
         this.navCategories = getNavCategories()
+        this.showToast('绑定已保存', 'success')
       }
       this.closeSubcategoriesModal()
     },
@@ -353,12 +386,27 @@ export default {
       this.selectedSubcategories = []
     },
     
-    // Reset to default
+    // Reset to default - show confirmation modal
     resetCategories() {
-      if (window.confirm('确定要恢复默认导航分类配置吗？')) {
-        resetToDefault()
-        this.navCategories = getNavCategories()
-      }
+      this.showResetModal = true
+    },
+    
+    // Perform reset after confirmation
+    doReset() {
+      resetToDefault()
+      this.navCategories = getNavCategories()
+      this.showResetModal = false
+      this.showToast('已恢复默认配置', 'success')
+    },
+    
+    // Toast notification
+    showToast(message, type = 'info') {
+      this.toastMessage = message
+      this.toastType = type
+      setTimeout(() => {
+        this.toastMessage = ''
+        this.toastType = ''
+      }, 2500)
     }
   }
 }
@@ -878,6 +926,43 @@ export default {
 .warning-text {
   color: #ef4444;
   font-size: 0.9em;
+}
+
+/* Toast Notification */
+.toast-message {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.9);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 0.9em;
+  z-index: 2000;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.toast-message.success {
+  background: rgba(34, 197, 94, 0.95);
+  border-color: rgba(34, 197, 94, 0.5);
+}
+
+.toast-message.error {
+  background: rgba(239, 68, 68, 0.95);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.3s ease;
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(20px);
 }
 
 /* Mobile responsive */
