@@ -1,11 +1,5 @@
 <template>
   <div class="carousel" v-if="videos.length > 0">
-    <!-- Carousel Badge -->
-    <div class="carousel-badge">
-      <span class="badge-icon">🎯</span>
-      <span class="badge-text">精选推荐</span>
-    </div>
-    
     <div 
       class="carousel-container" 
       ref="container"
@@ -31,10 +25,6 @@
             @error="handleImageError"
           />
           <div class="slide-overlay">
-            <div class="slide-tag">
-              <span class="tag-icon">📺</span>
-              <span class="tag-text">轮播推荐</span>
-            </div>
             <h3 class="slide-title">{{ video.video_title }}</h3>
             <div v-if="video.video_category" class="slide-category">
               {{ video.video_category }}
@@ -225,38 +215,10 @@ export default {
   border-radius: 20px;
   overflow: hidden;
   margin-bottom: 20px;
-  /* Golden border to distinguish from regular videos */
+  /* Purple border to distinguish from regular videos */
   border: 2px solid transparent;
   background: linear-gradient(#0f0f1a, #0f0f1a) padding-box,
-              linear-gradient(135deg, #ffd700, #ff8c00, #ff6347, #ffd700) border-box;
-  box-shadow: 0 8px 32px rgba(255, 140, 0, 0.25), 0 0 0 1px rgba(255, 215, 0, 0.1);
-}
-
-/* Carousel Badge */
-.carousel-badge {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: linear-gradient(135deg, #ff8c00, #ffd700);
-  border-radius: 20px;
-  box-shadow: 0 4px 12px rgba(255, 140, 0, 0.4);
-}
-
-.badge-icon {
-  font-size: 1em;
-}
-
-.badge-text {
-  font-size: 0.75em;
-  font-weight: 600;
-  color: #1a1a2e;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+              linear-gradient(135deg, #7c3aed, #a855f7, #7c3aed) border-box;
 }
 
 .carousel-container {
@@ -292,30 +254,6 @@ export default {
   background: linear-gradient(transparent, rgba(0, 0, 0, 0.85));
 }
 
-/* Slide Tag to identify as carousel item */
-.slide-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  background: linear-gradient(135deg, rgba(255, 140, 0, 0.3), rgba(255, 215, 0, 0.3));
-  border: 1px solid rgba(255, 215, 0, 0.5);
-  border-radius: 15px;
-  margin-bottom: 8px;
-}
-
-.tag-icon {
-  font-size: 0.8em;
-}
-
-.tag-text {
-  font-size: 0.7em;
-  font-weight: 600;
-  color: #ffd700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
 .slide-title {
   color: #fff;
   font-size: 1.2em;
@@ -332,11 +270,11 @@ export default {
   display: inline-block;
   margin-top: 8px;
   padding: 3px 10px;
-  background: rgba(0, 212, 255, 0.2);
-  border: 1px solid rgba(0, 212, 255, 0.4);
+  background: rgba(124, 58, 237, 0.2);
+  border: 1px solid rgba(124, 58, 237, 0.4);
   border-radius: 12px;
   font-size: 0.75em;
-  color: #00d4ff;
+  color: #a855f7;
 }
 
 .carousel-indicators {
@@ -356,15 +294,14 @@ export default {
   background: rgba(255, 255, 255, 0.5);
   cursor: pointer;
   transition: all 0.3s;
-  border: 1px solid rgba(255, 215, 0, 0.3);
+  border: 1px solid rgba(124, 58, 237, 0.3);
 }
 
 .indicator.active {
-  background: linear-gradient(135deg, #ffd700, #ff8c00);
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
   width: 24px;
   border-radius: 4px;
-  border-color: #ffd700;
-  box-shadow: 0 0 8px rgba(255, 215, 0, 0.6);
+  border-color: #7c3aed;
 }
 
 @media (max-width: 480px) {
@@ -373,35 +310,8 @@ export default {
     margin-bottom: 15px;
   }
   
-  .carousel-badge {
-    top: 8px;
-    left: 8px;
-    padding: 4px 10px;
-  }
-  
-  .badge-icon {
-    font-size: 0.9em;
-  }
-  
-  .badge-text {
-    font-size: 0.65em;
-  }
-  
   .slide-overlay {
     padding: 12px;
-  }
-  
-  .slide-tag {
-    padding: 3px 8px;
-    margin-bottom: 6px;
-  }
-  
-  .tag-icon {
-    font-size: 0.7em;
-  }
-  
-  .tag-text {
-    font-size: 0.6em;
   }
   
   .slide-title {
