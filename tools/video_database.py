@@ -797,14 +797,22 @@ class VideoDatabase:
     def get_next_video_id(self) -> int:
         """
         获取下一个可用的视频ID (Get next available video ID)
+        
+        使用时间戳和随机数组合生成唯一ID，避免并发竞争条件
 
         Returns:
-            下一个视频ID
+            下一个视频ID (基于时间戳)
         """
-        cursor = self.connection.cursor()
-        cursor.execute('SELECT COALESCE(MAX(video_id), 0) + 1 as next_id FROM videos')
-        row = cursor.fetchone()
-        return row['next_id'] if isinstance(row, dict) else row[0]
+        import random
+        from datetime import datetime
+        
+        # 使用时间戳 + 随机数生成唯一ID
+        # 格式: YYMMDDHHMM + 4位随机数 = 14位数字
+        timestamp = datetime.now().strftime('%y%m%d%H%M')
+        random_suffix = random.randint(1000, 9999)
+        video_id = int(f"{timestamp}{random_suffix}")
+        
+        return video_id
 
     def get_collection_status(self, hours: int = 24) -> Dict[str, Any]:
         """

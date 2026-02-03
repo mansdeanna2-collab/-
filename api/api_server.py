@@ -573,14 +573,14 @@ def check_new_videos() -> Tuple[Response, int]:
     import requests as http_requests
     from datetime import datetime
 
-    # 采集API配置
-    api_url = "https://api.sq03.shop/api.php/provide/vod/"
+    # 采集API配置 - 使用环境变量或默认值
+    api_url = os.environ.get('COLLECTOR_API_URL', 'https://api.sq03.shop/api.php/provide/vod/')
     hours: int = max(1, min(int(request.args.get('hours', 24)), 168))
 
     try:
-        # 请求最近更新的视频
+        # 请求最近更新的视频 (使用较短超时避免阻塞)
         params = {'ac': 'detail', 'h': hours, 'pg': 1}
-        response = http_requests.get(api_url, params=params, timeout=30)
+        response = http_requests.get(api_url, params=params, timeout=15)
         response.raise_for_status()
         data = response.json()
 

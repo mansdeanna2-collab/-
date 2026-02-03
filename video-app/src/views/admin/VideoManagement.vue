@@ -583,7 +583,8 @@ export default {
     },
     
     handleImageError(e) {
-      e.target.src = ''
+      // Use a transparent 1x1 pixel data URI instead of empty string to avoid browser loading current page
+      e.target.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
       e.target.style.background = 'linear-gradient(135deg, #2a2a4a 0%, #1a1a3e 100%)'
     },
     
