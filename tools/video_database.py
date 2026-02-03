@@ -717,12 +717,19 @@ class VideoDatabase:
         rows = cursor.fetchall()
         return [dict(row) if isinstance(row, dict) else dict(row) for row in rows]
 
+    # SQL expression for normalizing video titles (removing spaces and common separators)
+    # Used in find_duplicates to identify similar titles like "海绵宝宝" and "海绵宝 宝"
+    TITLE_NORMALIZE_SQL = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(video_title, ' ', ''), '　', ''), '-', ''), '_', ''), '.', '')"
+
     def find_duplicates(self, check_type: str = 'title') -> List[Dict[str, Any]]:
         """
         查找重复视频 (Find duplicate videos by title or image)
+        
+        对于标题查重，会移除空格和特殊字符进行比较，
+        例如 "海绵宝宝" 和 "海绵宝 宝" 会被识别为重复。
 
         Args:
-            check_type: 'title' 按标题查找, 'image' 按图片URL查找
+            check_type: 'title' 按标题查找 (忽略空格), 'image' 按图片URL查找
 
         Returns:
             重复视频列表，每组包含重复的视频信息
@@ -730,12 +737,16 @@ class VideoDatabase:
         cursor = self.connection.cursor()
 
         if check_type == 'title':
-            # 查找标题重复的视频
-            cursor.execute('''
-                SELECT video_title, COUNT(*) as duplicate_count
+            # 查找标题重复的视频 (忽略空格和常见分隔符)
+            # 使用 TITLE_NORMALIZE_SQL 移除空格、全角空格、以及常见的分隔符后进行比较
+            # 这样 "海绵宝宝" 和 "海绵宝 宝" 会被识别为相同标题
+            cursor.execute(f'''
+                SELECT 
+                    {self.TITLE_NORMALIZE_SQL} as normalized_title,
+                    COUNT(*) as duplicate_count
                 FROM videos
                 WHERE video_title IS NOT NULL AND video_title != ''
-                GROUP BY video_title
+                GROUP BY normalized_title
                 HAVING COUNT(*) > 1
                 ORDER BY duplicate_count DESC
                 LIMIT 100
@@ -743,21 +754,30 @@ class VideoDatabase:
             duplicate_groups = cursor.fetchall()
 
             result = []
+            placeholder = '%s' if self.use_mysql else '?'
+            
             for group in duplicate_groups:
                 group_dict = dict(group) if isinstance(group, dict) else dict(group)
-                title = group_dict['video_title']
-                placeholder = '%s' if self.use_mysql else '?'
+                normalized_title = group_dict['normalized_title']
 
+                # 使用相同的规范化方式查找所有匹配的视频
                 cursor.execute(
-                    f'SELECT video_id, video_title, video_image, video_category, upload_time FROM videos WHERE video_title = {placeholder}',
-                    (title,)
+                    f'''SELECT video_id, video_title, video_image, video_category, upload_time 
+                        FROM videos 
+                        WHERE {self.TITLE_NORMALIZE_SQL} = {placeholder}''',
+                    (normalized_title,)
                 )
                 videos = cursor.fetchall()
+                
+                # 使用第一个视频的原始标题作为显示值
+                video_list = [dict(v) if isinstance(v, dict) else dict(v) for v in videos]
+                display_title = video_list[0]['video_title'] if video_list else normalized_title
+                
                 result.append({
-                    'duplicate_value': title,
+                    'duplicate_value': display_title,
                     'duplicate_type': 'title',
                     'count': group_dict['duplicate_count'],
-                    'videos': [dict(v) if isinstance(v, dict) else dict(v) for v in videos]
+                    'videos': video_list
                 })
 
             return result

@@ -1055,6 +1055,8 @@ export default {
 .video-card .video-thumb {
   width: 100%;
   height: 120px;
+  object-fit: cover;
+  background: linear-gradient(135deg, #2a2a4a 0%, #1a1a3e 100%);
 }
 
 .video-card .video-info {

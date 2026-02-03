@@ -421,7 +421,7 @@ export default {
       // Scroll to top when switching main categories
       window.scrollTo({ top: 0, behavior: 'smooth' })
       
-      // Cleanup observer before resetting (will be re-created by watcher)
+      // Cleanup observer before resetting
       this.cleanupIntersectionObserver()
       
       // Reset visible categories count and reload data for the selected main category
@@ -431,6 +431,12 @@ export default {
       this.loading = true
       this.loadHomeData().finally(() => {
         this.loading = false
+        // Re-setup intersection observer after loading completes
+        // This is needed because the watcher on hasMoreCategories only fires when the value changes,
+        // but when switching categories, hasMoreCategories may already be true (so watcher doesn't fire)
+        this.$nextTick(() => {
+          this.setupIntersectionObserver()
+        })
       })
     },
     
