@@ -708,45 +708,64 @@ class VideoDatabase:
         """
         cursor = self.connection.cursor()
         
-        # Get category counts first
-        cursor.execute('''
-            SELECT video_category, COUNT(*) as video_count
-            FROM videos
-            WHERE video_category IS NOT NULL AND video_category != ''
-            GROUP BY video_category
-            ORDER BY video_count DESC
-        ''')
+        if self.use_mysql:
+            # MySQL: Use a subquery with ROW_NUMBER() or a correlated subquery
+            # This approach uses a LEFT JOIN with a derived table that finds the latest video per category
+            cursor.execute('''
+                SELECT 
+                    c.video_category,
+                    c.video_count,
+                    v.video_image as sample_image
+                FROM (
+                    SELECT video_category, COUNT(*) as video_count
+                    FROM videos
+                    WHERE video_category IS NOT NULL AND video_category != ''
+                    GROUP BY video_category
+                ) c
+                LEFT JOIN videos v ON v.video_id = (
+                    SELECT v2.video_id 
+                    FROM videos v2 
+                    WHERE v2.video_category = c.video_category 
+                    AND v2.video_image IS NOT NULL 
+                    AND v2.video_image != ''
+                    ORDER BY v2.upload_time DESC 
+                    LIMIT 1
+                )
+                ORDER BY c.video_count DESC
+            ''')
+        else:
+            # SQLite: Similar approach with correlated subquery
+            cursor.execute('''
+                SELECT 
+                    c.video_category,
+                    c.video_count,
+                    (
+                        SELECT v.video_image 
+                        FROM videos v 
+                        WHERE v.video_category = c.video_category 
+                        AND v.video_image IS NOT NULL 
+                        AND v.video_image != ''
+                        ORDER BY v.upload_time DESC 
+                        LIMIT 1
+                    ) as sample_image
+                FROM (
+                    SELECT video_category, COUNT(*) as video_count
+                    FROM videos
+                    WHERE video_category IS NOT NULL AND video_category != ''
+                    GROUP BY video_category
+                ) c
+                ORDER BY c.video_count DESC
+            ''')
+        
         rows = cursor.fetchall()
         
-        # Build result with sample images for each category
         result = []
-        placeholder = '%s' if self.use_mysql else '?'
-        
         for row in rows:
             row_dict = dict(row) if isinstance(row, dict) else dict(row)
-            category = row_dict['video_category']
-            
-            # Get a sample image for this category
-            cursor.execute(
-                f'''SELECT video_image FROM videos 
-                    WHERE video_category = {placeholder} 
-                    AND video_image IS NOT NULL 
-                    AND video_image != '' 
-                    ORDER BY upload_time DESC 
-                    LIMIT 1''',
-                (category,)
-            )
-            sample_row = cursor.fetchone()
-            
-            sample_image = ''
-            if sample_row:
-                sample_dict = dict(sample_row) if isinstance(sample_row, dict) else dict(sample_row)
-                sample_image = sample_dict.get('video_image', '')
-            
             result.append({
-                'video_category': category,
+                'video_category': row_dict['video_category'],
                 'video_count': row_dict['video_count'],
-                'sample_image': sample_image
+                'sample_image': row_dict.get('sample_image') or ''
             })
         
         return result

@@ -728,7 +728,7 @@ export default {
       
       try {
         await videoApi.updateVideo(this.editingVideo.video_id, this.editingVideo)
-        this.showToast('视频更新成功', 'success')
+        this.showToast(`视频 "${this.truncateText(this.editingVideo.video_title, 20)}" 更新成功`, 'success')
         this.showEditVideoModal = false
         
         // Refresh data
