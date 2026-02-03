@@ -56,7 +56,8 @@ export default {
     menuItems() {
       return [
         { path: getAdminPath('dashboard'), icon: '📊', label: '仪表盘' },
-        { path: getAdminPath('nav-categories'), icon: '📁', label: '导航分类管理' }
+        { path: getAdminPath('nav-categories'), icon: '📁', label: '导航分类管理' },
+        { path: getAdminPath('video-management'), icon: '🎬', label: '视频管理' }
       ]
     },
     currentPageTitle() {

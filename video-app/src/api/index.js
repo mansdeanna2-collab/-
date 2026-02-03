@@ -289,6 +289,43 @@ export const videoApi = {
     return api.post('/nav-categories/reset')
   },
 
+  // ==================== Admin Video Management ====================
+
+  // Get category statistics (video count per category)
+  getCategoryStats() {
+    return api.get('/admin/category-stats')
+  },
+
+  // Get videos in a specific category (for admin viewing)
+  getCategoryVideosAdmin(category, limit = 50, offset = 0) {
+    return api.get('/admin/category-videos', { params: { category, limit, offset } })
+  },
+
+  // Find duplicate videos (by title or image)
+  getDuplicateVideos(type = 'title') {
+    return api.get('/admin/duplicates', { params: { type } })
+  },
+
+  // Add a new video
+  addVideo(videoData) {
+    return api.post('/admin/videos', videoData)
+  },
+
+  // Delete a video
+  deleteVideo(videoId) {
+    return api.delete(`/admin/videos/${videoId}`)
+  },
+
+  // Get collection status
+  getCollectionStatus(hours = 24) {
+    return api.get('/admin/collection-status', { params: { hours } })
+  },
+
+  // Check for new videos from source
+  checkNewVideos(hours = 24) {
+    return api.post('/admin/check-new-videos', null, { params: { hours } })
+  },
+
   // Clear all cached data (useful for force refresh)
   clearCache() {
     cache.clear()

@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import AdminLayout from '@/views/admin/AdminLayout.vue'
 import AdminDashboard from '@/views/admin/AdminDashboard.vue'
 import NavCategoriesManager from '@/views/admin/NavCategoriesManager.vue'
+import VideoManagement from '@/views/admin/VideoManagement.vue'
 
 const routes = [
   {
@@ -24,6 +25,12 @@ const routes = [
         name: 'admin-nav-categories',
         component: NavCategoriesManager,
         meta: { title: '导航分类管理' }
+      },
+      {
+        path: 'video-management',
+        name: 'admin-video-management',
+        component: VideoManagement,
+        meta: { title: '视频管理' }
       }
     ]
   }

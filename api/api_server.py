@@ -442,6 +442,187 @@ def reset_nav_categories() -> Tuple[Response, int]:
         return api_response(message="重置失败", code=500)
 
 
+# ==================== 视频管理API (Video Management API) ====================
+
+@app.route('/api/admin/category-stats', methods=['GET'])
+@handle_errors
+def get_category_stats() -> Tuple[Response, int]:
+    """
+    获取各分类视频统计 (Get video count statistics by category)
+    返回每个分类的视频数量
+    """
+    with get_db() as db:
+        stats: List[Dict[str, Any]] = db.get_category_stats()
+
+    return api_response(data=stats)
+
+
+@app.route('/api/admin/category-videos', methods=['GET'])
+@handle_errors
+def get_category_videos_admin() -> Tuple[Response, int]:
+    """
+    获取指定分类的视频列表 (Get videos in a specific category for admin)
+    用于后台查看分类内的视频
+
+    Query参数:
+        category: 分类名称 (必需)
+        limit: 返回数量 (默认50, 最大200)
+        offset: 偏移量 (默认0)
+    """
+    category: str = request.args.get('category', '').strip()
+    if not category:
+        return api_response(message="请提供分类名称", code=400)
+
+    limit: int = max(1, min(int(request.args.get('limit', 50)), 200))
+    offset: int = max(0, int(request.args.get('offset', 0)))
+
+    with get_db() as db:
+        videos: List[Dict[str, Any]] = db.get_videos_by_category(category, limit=limit, offset=offset)
+
+    return api_response(data=videos)
+
+
+@app.route('/api/admin/duplicates', methods=['GET'])
+@handle_errors
+def get_duplicate_videos() -> Tuple[Response, int]:
+    """
+    检测重复视频 (Detect duplicate videos)
+    根据标题或图片URL查找重复的视频
+
+    Query参数:
+        type: 检测类型 ('title' 或 'image', 默认 'title')
+    """
+    check_type: str = request.args.get('type', 'title').strip().lower()
+    if check_type not in ['title', 'image']:
+        check_type = 'title'
+
+    with get_db() as db:
+        duplicates: List[Dict[str, Any]] = db.find_duplicates(check_type)
+
+    return api_response(data=duplicates)
+
+
+@app.route('/api/admin/videos', methods=['POST'])
+@handle_errors
+def add_video() -> Tuple[Response, int]:
+    """
+    添加新视频 (Add a new video)
+    """
+    data = request.get_json()
+    if not data:
+        return api_response(message="请提供视频数据", code=400)
+
+    required_fields = ['video_url', 'video_title']
+    for field in required_fields:
+        if not data.get(field):
+            return api_response(message=f"缺少必需字段: {field}", code=400)
+
+    with get_db() as db:
+        # Generate a new video_id if not provided
+        if not data.get('video_id'):
+            data['video_id'] = db.get_next_video_id()
+
+        success: bool = db.insert_video(data)
+
+    if success:
+        return api_response(message="视频添加成功", data={'video_id': data['video_id']})
+    else:
+        return api_response(message="添加失败", code=500)
+
+
+@app.route('/api/admin/videos/<int:video_id>', methods=['DELETE'])
+@handle_errors
+def delete_video(video_id: int) -> Tuple[Response, int]:
+    """
+    删除视频 (Delete a video)
+    """
+    with get_db() as db:
+        success: bool = db.delete_video(video_id)
+
+    if success:
+        return api_response(message="视频删除成功")
+    else:
+        return api_response(message="视频不存在或删除失败", code=404)
+
+
+@app.route('/api/admin/collection-status', methods=['GET'])
+@handle_errors
+def get_collection_status() -> Tuple[Response, int]:
+    """
+    获取采集状态 (Get collection status)
+    检查是否有新视频可以采集，以及已采集的视频统计
+
+    Query参数:
+        hours: 检查多少小时内的更新 (默认24)
+    """
+    hours: int = max(1, min(int(request.args.get('hours', 24)), 168))  # Max 7 days
+
+    with get_db() as db:
+        status: Dict[str, Any] = db.get_collection_status(hours)
+
+    return api_response(data=status)
+
+
+@app.route('/api/admin/check-new-videos', methods=['POST'])
+@handle_errors
+def check_new_videos() -> Tuple[Response, int]:
+    """
+    检查新视频 (Check for new videos from source)
+    从采集源检查是否有新的视频可以采集
+    """
+    import requests as http_requests
+    from datetime import datetime
+
+    # 采集API配置 - 使用环境变量或默认值
+    api_url = os.environ.get('COLLECTOR_API_URL', 'https://api.sq03.shop/api.php/provide/vod/')
+    hours: int = max(1, min(int(request.args.get('hours', 24)), 168))
+
+    try:
+        # 请求最近更新的视频 (使用较短超时避免阻塞)
+        params = {'ac': 'detail', 'h': hours, 'pg': 1}
+        response = http_requests.get(api_url, params=params, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+
+        total_available = data.get('total', 0)
+        source_videos = data.get('list', [])
+
+        # 检查哪些视频已经在数据库中
+        with get_db() as db:
+            existing_ids = set()
+            for video in source_videos:
+                vod_id = video.get('vod_id')
+                if vod_id and db.get_video(vod_id):
+                    existing_ids.add(vod_id)
+
+            new_videos = [v for v in source_videos if v.get('vod_id') not in existing_ids]
+            already_collected = [v for v in source_videos if v.get('vod_id') in existing_ids]
+
+        result = {
+            'total_available': total_available,
+            'checked_count': len(source_videos),
+            'new_count': len(new_videos),
+            'already_collected_count': len(already_collected),
+            'new_videos': [{
+                'vod_id': v.get('vod_id'),
+                'vod_name': v.get('vod_name'),
+                'vod_pic': v.get('vod_pic'),
+                'type_name': v.get('type_name'),
+                'vod_time': v.get('vod_time')
+            } for v in new_videos[:20]],  # Only return first 20
+            'checked_at': datetime.now().isoformat()
+        }
+
+        return api_response(data=result)
+
+    except http_requests.RequestException as e:
+        logger.error(f"检查新视频失败: {e}")
+        return api_response(message=f"检查失败: {str(e)}", code=500)
+    except Exception as e:
+        logger.error(f"检查新视频失败: {e}")
+        return api_response(message="检查失败", code=500)
+
+
 # ==================== 错误处理 (Error Handlers) ====================
 
 @app.errorhandler(404)

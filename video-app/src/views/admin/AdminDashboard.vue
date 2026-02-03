@@ -65,22 +65,22 @@
         >
           <div class="nav-card-header">
             <span class="nav-name">{{ navCat.label }}</span>
-            <span class="nav-count">{{ navCat.subcategories.length }} 个分类</span>
+            <span class="nav-count">{{ (navCat.subcategories || []).length }} 个分类</span>
           </div>
           <div class="nav-card-body">
             <div class="subcategory-tags">
               <span 
-                v-for="sub in navCat.subcategories.slice(0, 4)" 
+                v-for="sub in (navCat.subcategories || []).slice(0, 4)" 
                 :key="sub"
                 class="subcategory-tag"
               >
                 {{ sub }}
               </span>
               <span 
-                v-if="navCat.subcategories.length > 4"
+                v-if="(navCat.subcategories || []).length > 4"
                 class="subcategory-more"
               >
-                +{{ navCat.subcategories.length - 4 }} 更多
+                +{{ (navCat.subcategories || []).length - 4 }} 更多
               </span>
             </div>
           </div>
@@ -106,7 +106,7 @@ export default {
   },
   computed: {
     totalBoundCategories() {
-      return this.navCategories.reduce((sum, nav) => sum + nav.subcategories.length, 0)
+      return this.navCategories.reduce((sum, nav) => sum + (nav.subcategories?.length || 0), 0)
     },
     // Use shared utility for standalone mode detection
     isStandaloneMode,

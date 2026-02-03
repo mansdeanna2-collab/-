@@ -255,7 +255,7 @@ export function getSubcategoryMapping() {
   const categories = getNavCategories()
   const mapping = {}
   categories.forEach(cat => {
-    mapping[cat.key] = cat.subcategories
+    mapping[cat.key] = cat.subcategories || []
   })
   return mapping
 }

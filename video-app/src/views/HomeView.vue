@@ -838,8 +838,8 @@ export default {
   background: transparent;
   border: none;
   color: #fff;
-  font-size: 1.1em;
-  font-weight: 500;
+  font-size: 1.4em;
+  font-weight: 600;
   cursor: pointer;
   transition: color 0.3s;
   white-space: nowrap;
@@ -856,7 +856,7 @@ export default {
 
 /* Main Content */
 .main-content {
-  padding-top: 130px;
+  padding-top: 155px;
   padding-bottom: 10px;
 }
 
