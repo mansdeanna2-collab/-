@@ -28,10 +28,12 @@ import os
 import sys
 import logging
 import time
+from datetime import datetime
 from functools import wraps
 from contextlib import contextmanager
 from typing import Any, Callable, cast, Dict, Generator, List, Optional, Tuple, TypeVar
 
+import requests as http_requests
 from flask import Flask, jsonify, request, Response, g
 from flask_cors import CORS
 
@@ -570,9 +572,6 @@ def check_new_videos() -> Tuple[Response, int]:
     检查新视频 (Check for new videos from source)
     从采集源检查是否有新的视频可以采集
     """
-    import requests as http_requests
-    from datetime import datetime
-
     # 采集API配置 - 使用环境变量或默认值
     api_url = os.environ.get('COLLECTOR_API_URL', 'https://api.sq03.shop/api.php/provide/vod/')
     hours: int = max(1, min(int(request.args.get('hours', 24)), 168))
@@ -621,6 +620,163 @@ def check_new_videos() -> Tuple[Response, int]:
     except Exception as e:
         logger.error(f"检查新视频失败: {e}")
         return api_response(message="检查失败", code=500)
+
+
+@app.route('/api/admin/collect-videos', methods=['POST'])
+@handle_errors
+def collect_videos() -> Tuple[Response, int]:
+    """
+    后台采集视频 (Background video collection)
+    从采集源采集视频并保存到数据库
+
+    Request Body:
+        type_id: 分类ID筛选 (可选)
+        hours: 获取多少小时内更新的视频 (可选, 默认24)
+        max_pages: 最大采集页数 (可选, 默认1)
+        skip_duplicates: 是否跳过已存在的视频 (可选, 默认true)
+    """
+    # 获取请求参数
+    data = request.get_json() or {}
+    type_id = data.get('type_id')
+    hours: int = max(1, min(int(data.get('hours', 24)), 168))
+    max_pages: int = max(1, min(int(data.get('max_pages', 1)), 50))
+    skip_duplicates: bool = data.get('skip_duplicates', True)
+
+    # 采集API配置
+    api_url = os.environ.get('COLLECTOR_API_URL', 'https://api.sq03.shop/api.php/provide/vod/')
+
+    # 域名替换配置 (与video_collector.py一致)
+    domain_replacements = {
+        'vip.sq03.shop': 'd34zpx35a2d8cd.cloudfront.net'
+    }
+
+    def process_play_url(play_url: str) -> str:
+        """处理播放URL，替换指定域名"""
+        if not play_url:
+            return play_url
+        for old_domain, new_domain in domain_replacements.items():
+            play_url = play_url.replace(old_domain, new_domain)
+        return play_url
+
+    def is_valid_video(video: dict) -> bool:
+        """检查视频是否有效（图片URL不能以.txt结尾）"""
+        vod_pic = video.get('vod_pic', '')
+        if vod_pic and vod_pic.lower().endswith('.txt'):
+            return False
+        return True
+
+    collected_videos = []
+    skipped_count = 0
+    duplicate_count = 0
+    pages_processed = 0
+
+    try:
+        with get_db() as db:
+            # 遍历采集页面
+            for page in range(1, max_pages + 1):
+                params = {'ac': 'detail', 'pg': page}
+                if type_id:
+                    params['t'] = type_id
+                if hours:
+                    params['h'] = hours
+
+                response = http_requests.get(api_url, params=params, timeout=30)
+                response.raise_for_status()
+                page_data = response.json()
+
+                source_videos = page_data.get('list', [])
+                if not source_videos:
+                    break
+                
+                pages_processed += 1
+
+                for video in source_videos:
+                    # 验证视频有效性
+                    if not is_valid_video(video):
+                        skipped_count += 1
+                        continue
+
+                    vod_id = video.get('vod_id')
+                    if not vod_id:
+                        skipped_count += 1
+                        continue
+
+                    # 检查重复
+                    if skip_duplicates and db.get_video(vod_id):
+                        duplicate_count += 1
+                        continue
+
+                    # 处理播放URL
+                    vod_play_url = process_play_url(video.get('vod_play_url', ''))
+
+                    # 映射字段并插入数据库
+                    db_video = {
+                        'video_id': vod_id,
+                        'video_url': vod_play_url,
+                        'video_image': video.get('vod_pic', ''),
+                        'video_title': video.get('vod_name', ''),
+                        'video_category': video.get('type_name', ''),
+                        'play_count': video.get('vod_hits', 0),
+                        'upload_time': video.get('vod_time', ''),
+                        'video_duration': video.get('vod_duration', video.get('vod_remarks', '')),
+                        'video_coins': 0
+                    }
+
+                    if db.insert_video(db_video):
+                        collected_videos.append({
+                            'video_id': vod_id,
+                            'video_title': video.get('vod_name', ''),
+                            'video_category': video.get('type_name', '')
+                        })
+
+        result = {
+            'collected_count': len(collected_videos),
+            'skipped_count': skipped_count,
+            'duplicate_count': duplicate_count,
+            'pages_processed': pages_processed,
+            'type_id': type_id,
+            'hours': hours,
+            'collected_at': datetime.now().isoformat(),
+            'collected_videos': collected_videos[:50]  # Return first 50 for preview
+        }
+
+        if len(collected_videos) > 0:
+            return api_response(data=result, message=f"成功采集 {len(collected_videos)} 个视频")
+        else:
+            return api_response(data=result, message="没有新视频可采集")
+
+    except http_requests.RequestException as e:
+        logger.error(f"采集视频失败: {e}")
+        return api_response(message=f"采集失败: {str(e)}", code=500)
+    except Exception as e:
+        logger.error(f"采集视频失败: {e}")
+        return api_response(message="采集失败", code=500)
+
+
+@app.route('/api/admin/get-source-categories', methods=['GET'])
+@handle_errors
+def get_source_categories() -> Tuple[Response, int]:
+    """
+    获取采集源分类列表 (Get source categories)
+    从采集源API获取可用的视频分类
+    """
+    api_url = os.environ.get('COLLECTOR_API_URL', 'https://api.sq03.shop/api.php/provide/vod/')
+
+    try:
+        params = {'ac': 'list'}
+        response = http_requests.get(api_url, params=params, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+
+        categories = data.get('class', [])
+        return api_response(data=categories)
+
+    except http_requests.RequestException as e:
+        logger.error(f"获取分类失败: {e}")
+        return api_response(message=f"获取分类失败: {str(e)}", code=500)
+    except Exception as e:
+        logger.error(f"获取分类失败: {e}")
+        return api_response(message="获取分类失败", code=500)
 
 
 # ==================== 错误处理 (Error Handlers) ====================

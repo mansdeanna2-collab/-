@@ -326,6 +326,21 @@ export const videoApi = {
     return api.post('/admin/check-new-videos', null, { params: { hours } })
   },
 
+  // Collect videos from source and save to database
+  collectVideos(options = {}) {
+    return api.post('/admin/collect-videos', {
+      type_id: options.type_id || null,
+      hours: options.hours || 24,
+      max_pages: options.max_pages || 1,
+      skip_duplicates: options.skip_duplicates !== false
+    })
+  },
+
+  // Get source categories from collector API
+  getSourceCategories() {
+    return api.get('/admin/get-source-categories')
+  },
+
   // Clear all cached data (useful for force refresh)
   clearCache() {
     cache.clear()

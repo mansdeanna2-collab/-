@@ -1,5 +1,13 @@
 <template>
-  <div class="video-card" @click="handleClick">
+  <div 
+    class="video-card" 
+    @click="handleClick"
+    role="button"
+    tabindex="0"
+    :aria-label="`播放视频: ${video.video_title}`"
+    @keydown.enter="handleClick"
+    @keydown.space.prevent="handleClick"
+  >
     <div class="thumbnail">
       <img 
         v-if="video.video_image" 
@@ -8,13 +16,13 @@
         @error="handleImageError"
         loading="lazy"
       />
-      <div v-else class="placeholder">
+      <div v-else class="placeholder" aria-hidden="true">
         <span>🎬</span>
       </div>
-      <div class="placeholder" ref="placeholder" style="display: none;">
+      <div class="placeholder" ref="placeholder" style="display: none;" aria-hidden="true">
         <span>🎬</span>
       </div>
-      <div class="play-icon">
+      <div class="play-icon" aria-hidden="true">
         <span class="play-arrow"></span>
       </div>
       <div v-if="video.video_duration" class="duration">
@@ -32,7 +40,7 @@
         </span>
       </div>
       <div v-if="video.video_coins > 0" class="coins">
-        <span class="coin-icon">🪙</span>
+        <span class="coin-icon" aria-hidden="true">🪙</span>
         {{ video.video_coins }} 金币
       </div>
     </div>
@@ -103,12 +111,25 @@ export default {
   transition: all 0.3s ease;
   cursor: pointer;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  /* Remove default outline, we'll add custom focus style */
+  outline: none;
 }
 
 .video-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
   border-color: #00d4ff;
+}
+
+/* Keyboard focus styling for accessibility */
+.video-card:focus {
+  border-color: #00d4ff;
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.3);
+}
+
+.video-card:focus-visible {
+  border-color: #00d4ff;
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.3);
 }
 
 /* Touch device support - show play icon on touch */

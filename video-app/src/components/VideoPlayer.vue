@@ -811,8 +811,8 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.1);
@@ -820,6 +820,9 @@ export default {
   font-size: 18px;
   cursor: pointer;
   transition: all 0.3s;
+  /* Ensure minimum touch target */
+  min-width: 44px;
+  min-height: 44px;
 }
 
 .control-btn:hover {
@@ -853,6 +856,8 @@ export default {
   font-size: 14px;
   cursor: pointer;
   transition: all 0.3s;
+  /* Ensure minimum touch target */
+  min-height: 44px;
 }
 
 .episode-btn:hover {
@@ -878,12 +883,17 @@ export default {
   .speed-select {
     padding: 5px 8px;
     font-size: 12px;
+    /* Ensure minimum touch target per Apple HIG */
+    min-height: 44px;
   }
   
   .control-btn {
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
     font-size: 16px;
+    /* Ensure minimum touch target per Apple HIG */
+    min-width: 44px;
+    min-height: 44px;
   }
   
   .episode-list {
@@ -893,6 +903,8 @@ export default {
   .episode-btn {
     padding: 6px 12px;
     font-size: 12px;
+    /* Ensure minimum touch target per Apple HIG */
+    min-height: 44px;
   }
 }
 
@@ -912,14 +924,18 @@ export default {
   right: 0;
   background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
   padding: 20px 15px 15px;
+  /* Support for safe areas in fullscreen/landscape mode */
+  padding-bottom: calc(15px + env(safe-area-inset-bottom));
+  padding-left: calc(15px + env(safe-area-inset-left));
+  padding-right: calc(15px + env(safe-area-inset-right));
   z-index: 30;
 }
 
 .is-fullscreen .episode-list {
   position: absolute;
-  bottom: 60px;
-  left: 0;
-  right: 0;
+  bottom: calc(60px + env(safe-area-inset-bottom));
+  left: env(safe-area-inset-left);
+  right: env(safe-area-inset-right);
   max-height: 150px;
   overflow-y: auto;
   z-index: 25;

@@ -92,7 +92,7 @@
             >
               <img 
                 v-if="video.video_image" 
-                :src="video.video_image" 
+                :src="formatImageUrl(video.video_image)" 
                 :alt="video.video_title"
                 class="video-thumb"
                 @error="handleImageError"
@@ -150,7 +150,7 @@
         >
           <img 
             v-if="video.video_image" 
-            :src="video.video_image" 
+            :src="formatImageUrl(video.video_image)" 
             :alt="video.video_title"
             class="video-thumb"
             @error="handleImageError"
@@ -178,7 +178,7 @@
     <!-- Collection Status Tab -->
     <div v-if="activeTab === 'collection'" class="tab-content">
       <div class="section-header">
-        <h3>📥 采集状态</h3>
+        <h3>📥 采集管理</h3>
         <div class="header-actions">
           <select v-model="collectionHours" class="select-input">
             <option value="24">24小时内</option>
@@ -186,9 +186,67 @@
             <option value="72">72小时内</option>
             <option value="168">7天内</option>
           </select>
-          <button class="btn btn-primary btn-sm" @click="checkNewVideos">
+          <button class="btn btn-secondary btn-sm" @click="checkNewVideos">
             检查新视频
           </button>
+        </div>
+      </div>
+      
+      <!-- Collection Controls -->
+      <div class="collection-controls">
+        <h4>🚀 后台采集</h4>
+        <div class="control-row">
+          <div class="control-group">
+            <label>采集分类</label>
+            <select v-model="collectTypeId" class="select-input">
+              <option value="">全部分类</option>
+              <option v-for="cat in sourceCategories" :key="cat.type_id" :value="cat.type_id">
+                {{ cat.type_name }}
+              </option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label>时间范围</label>
+            <select v-model="collectHours" class="select-input">
+              <option value="24">24小时内</option>
+              <option value="48">48小时内</option>
+              <option value="72">72小时内</option>
+              <option value="168">7天内</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label>采集页数</label>
+            <select v-model="collectMaxPages" class="select-input">
+              <option value="1">1页</option>
+              <option value="3">3页</option>
+              <option value="5">5页</option>
+              <option value="10">10页</option>
+              <option value="20">20页</option>
+            </select>
+          </div>
+          <div class="control-group checkbox-group">
+            <label>
+              <input type="checkbox" v-model="collectSkipDuplicates" />
+              跳过已有视频
+            </label>
+          </div>
+          <button 
+            class="btn btn-primary" 
+            @click="startCollection"
+            :disabled="collectingVideos"
+          >
+            {{ collectingVideos ? '采集中...' : '开始采集' }}
+          </button>
+        </div>
+        
+        <div v-if="collectionResult" class="collection-result">
+          <h5>采集结果</h5>
+          <div class="result-summary">
+            <span class="highlight">成功采集: {{ collectionResult.collected_count }} 个</span>
+            <span>跳过无效: {{ collectionResult.skipped_count }} 个</span>
+            <span>已存在: {{ collectionResult.duplicate_count }} 个</span>
+            <span>处理页数: {{ collectionResult.pages_processed }} 页</span>
+          </div>
         </div>
       </div>
       
@@ -231,7 +289,7 @@
             >
               <img 
                 v-if="video.vod_pic" 
-                :src="video.vod_pic" 
+                :src="formatImageUrl(video.vod_pic)" 
                 :alt="video.vod_name"
                 class="video-thumb small"
                 @error="handleImageError"
@@ -270,7 +328,7 @@
             >
               <img 
                 v-if="video.video_image" 
-                :src="video.video_image" 
+                :src="formatImageUrl(video.video_image)" 
                 :alt="video.video_title"
                 class="video-thumb"
                 @error="handleImageError"
@@ -354,6 +412,7 @@
 <script>
 import { videoApi } from '@/api'
 import { extractArrayData } from '@/utils/apiUtils'
+import { formatImageUrl } from '@/utils/imageUtils'
 
 export default {
   name: 'VideoManagement',
@@ -406,6 +465,15 @@ export default {
       newVideosResult: null,
       loadingCollection: false,
       
+      // Background Collection
+      sourceCategories: [],
+      collectTypeId: '',
+      collectHours: 24,
+      collectMaxPages: 1,
+      collectSkipDuplicates: true,
+      collectingVideos: false,
+      collectionResult: null,
+      
       // Toast
       toastMessage: '',
       toastType: ''
@@ -413,6 +481,7 @@ export default {
   },
   mounted() {
     this.loadCategoryStats()
+    this.loadSourceCategories()
   },
   methods: {
     // Category Statistics
@@ -576,10 +645,59 @@ export default {
       }
     },
     
+    // Load source categories from collector API
+    async loadSourceCategories() {
+      try {
+        const result = await videoApi.getSourceCategories()
+        this.sourceCategories = extractArrayData(result)
+      } catch (e) {
+        console.error('Load source categories error:', e)
+        // Silently fail - categories are optional for collection
+      }
+    },
+    
+    // Start background collection
+    async startCollection() {
+      if (this.collectingVideos) return
+      
+      this.collectingVideos = true
+      this.collectionResult = null
+      
+      try {
+        const result = await videoApi.collectVideos({
+          type_id: this.collectTypeId || null,
+          hours: parseInt(this.collectHours),
+          max_pages: parseInt(this.collectMaxPages),
+          skip_duplicates: this.collectSkipDuplicates
+        })
+        
+        this.collectionResult = result?.data || result
+        
+        if (this.collectionResult.collected_count > 0) {
+          this.showToast(`成功采集 ${this.collectionResult.collected_count} 个视频`, 'success')
+          // Refresh stats after collection
+          this.loadCategoryStats()
+          this.checkNewVideos()
+        } else {
+          this.showToast('没有新视频可采集', 'info')
+        }
+      } catch (e) {
+        console.error('Collection error:', e)
+        this.showToast('采集失败: ' + (e.userMessage || e.message), 'error')
+      } finally {
+        this.collectingVideos = false
+      }
+    },
+    
     // Utility methods
     truncateText(text, maxLength) {
       if (!text) return ''
       return text.length > maxLength ? text.substring(0, maxLength) + '...' : text
+    },
+    
+    // Format image URL to handle base64 and special URL formats
+    formatImageUrl(url) {
+      return formatImageUrl(url)
     },
     
     handleImageError(e) {
@@ -728,6 +846,12 @@ export default {
   border-radius: 8px;
   color: #fff;
   font-size: 0.9em;
+}
+
+/* Fix dropdown options styling - ensure text is visible in browser's native dropdown */
+.select-input option {
+  background-color: #1a1a2e;
+  color: #fff;
 }
 
 .select-input:focus,
@@ -942,6 +1066,72 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 25px;
+}
+
+/* Collection Controls */
+.collection-controls {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 25px;
+}
+
+.collection-controls h4 {
+  margin: 0 0 15px 0;
+  color: #fff;
+  font-size: 1.1em;
+}
+
+.control-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  align-items: flex-end;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.control-group label {
+  font-size: 0.85em;
+  color: #a0a0b0;
+}
+
+.control-group.checkbox-group {
+  flex-direction: row;
+  align-items: center;
+}
+
+.control-group.checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  cursor: pointer;
+}
+
+.control-group.checkbox-group input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #7c3aed;
+}
+
+.collection-result {
+  margin-top: 20px;
+  padding: 15px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 8px;
+}
+
+.collection-result h5 {
+  margin: 0 0 10px 0;
+  color: #22c55e;
+  font-size: 0.95em;
 }
 
 .status-cards {

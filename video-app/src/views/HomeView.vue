@@ -742,6 +742,10 @@ export default {
   right: 0;
   background: linear-gradient(180deg, rgba(26, 26, 46, 0.98) 0%, rgba(26, 26, 46, 0.95) 100%);
   padding: 12px 15px;
+  /* Support for iOS notch/safe areas */
+  padding-top: calc(12px + env(safe-area-inset-top));
+  padding-left: calc(15px + env(safe-area-inset-left));
+  padding-right: calc(15px + env(safe-area-inset-right));
   z-index: 100;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -814,12 +818,14 @@ export default {
 /* Category Tabs */
 .category-tabs {
   position: fixed;
-  top: 56px;
+  top: calc(56px + env(safe-area-inset-top));
   left: 0;
   right: 0;
   display: flex;
   gap: 8px;
   padding: 12px 15px;
+  padding-left: calc(15px + env(safe-area-inset-left));
+  padding-right: calc(15px + env(safe-area-inset-right));
   overflow-x: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -827,6 +833,8 @@ export default {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   z-index: 99;
+  /* Improve horizontal scrolling on touch devices */
+  -webkit-overflow-scrolling: touch;
 }
 
 .category-tabs::-webkit-scrollbar {
@@ -856,7 +864,7 @@ export default {
 
 /* Main Content */
 .main-content {
-  padding-top: 155px;
+  padding-top: calc(155px + env(safe-area-inset-top));
   padding-bottom: 10px;
 }
 
@@ -868,7 +876,7 @@ export default {
   align-items: center;
   justify-content: center;
   padding: 80px 20px;
-  padding-top: 150px;
+  padding-top: calc(150px + env(safe-area-inset-top));
   text-align: center;
 }
 
@@ -1001,6 +1009,7 @@ export default {
   
   .header {
     padding: 10px 12px;
+    padding-top: calc(10px + env(safe-area-inset-top));
   }
   
   .header-content {
@@ -1023,26 +1032,32 @@ export default {
   .search-box input {
     padding: 5px 10px;
     font-size: 12px;
+    /* Ensure minimum touch target height */
+    min-height: 36px;
   }
   
   .search-btn {
     padding: 5px 10px;
     font-size: 12px;
+    /* Ensure minimum touch target height */
+    min-height: 36px;
   }
   
   .category-tabs {
     gap: 6px;
     padding: 10px 12px;
-    top: 50px;
+    top: calc(50px + env(safe-area-inset-top));
   }
   
   .main-content {
-    padding-top: 115px;
+    padding-top: calc(115px + env(safe-area-inset-top));
   }
   
   .tab-btn {
     padding: 6px 12px;
     font-size: 1em;
+    /* Ensure minimum touch target */
+    min-height: 44px;
   }
   
   .videos-grid {
@@ -1069,6 +1084,7 @@ export default {
   
   .header {
     padding: 10px;
+    padding-top: calc(10px + env(safe-area-inset-top));
   }
   
   .logo {
@@ -1077,16 +1093,18 @@ export default {
   
   .category-tabs {
     padding: 10px;
-    top: 46px;
+    top: calc(46px + env(safe-area-inset-top));
   }
   
   .main-content {
-    padding-top: 105px;
+    padding-top: calc(105px + env(safe-area-inset-top));
   }
   
   .tab-btn {
     padding: 5px 10px;
     font-size: 0.95em;
+    /* Ensure minimum touch target */
+    min-height: 44px;
   }
   
   .videos-grid {

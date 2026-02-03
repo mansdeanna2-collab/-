@@ -201,12 +201,19 @@ export default {
 .player-view {
   min-height: 100vh;
   background: #0a0a1a;
+  /* Support for safe areas in landscape mode */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 .nav-bar {
   display: flex;
   align-items: center;
   padding: 15px 20px;
+  /* Support for iOS notch/safe areas */
+  padding-top: calc(15px + env(safe-area-inset-top));
+  padding-left: calc(20px + env(safe-area-inset-left));
+  padding-right: calc(20px + env(safe-area-inset-right));
   background: rgba(0, 0, 0, 0.5);
   position: sticky;
   top: 0;
@@ -222,6 +229,8 @@ export default {
   cursor: pointer;
   font-size: 14px;
   transition: all 0.3s;
+  /* Ensure minimum touch target */
+  min-height: 44px;
 }
 
 .back-btn:hover {
@@ -332,6 +341,7 @@ export default {
 @media (max-width: 768px) {
   .nav-bar {
     padding: 10px 15px;
+    padding-top: calc(10px + env(safe-area-inset-top));
   }
   
   .video-info {
@@ -352,11 +362,14 @@ export default {
 @media (max-width: 480px) {
   .nav-bar {
     padding: 8px 12px;
+    padding-top: calc(8px + env(safe-area-inset-top));
   }
   
   .back-btn {
     padding: 6px 12px;
     font-size: 13px;
+    /* Ensure minimum touch target per Apple HIG */
+    min-height: 44px;
   }
   
   .nav-bar .title {
