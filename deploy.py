@@ -484,9 +484,13 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \\
     # SPA routing
     location / {
         try_files $uri $uri/ /index.html;
+        # Prevent caching of HTML files to ensure updates are always fetched
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        add_header Pragma "no-cache" always;
+        add_header Expires "0" always;
     }
 
-    # Cache static assets
+    # Cache static assets (use aggressive caching since Vite uses hashed filenames)
     location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
         expires 1y;
         add_header Cache-Control "public, immutable";
