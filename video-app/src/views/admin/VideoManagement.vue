@@ -33,6 +33,16 @@
           :key="cat.video_category"
           class="stat-card"
         >
+          <img 
+            v-if="cat.sample_image" 
+            :src="formatImageUrl(cat.sample_image)" 
+            :alt="cat.video_category"
+            class="stat-image"
+            @error="handleImageError"
+          />
+          <div v-else class="stat-image-placeholder">
+            🎬
+          </div>
           <div class="stat-info">
             <span class="stat-category">{{ cat.video_category || '未分类' }}</span>
             <span class="stat-count">{{ cat.video_count }} 个视频</span>
@@ -1058,6 +1068,27 @@ export default {
 .stat-count {
   font-size: 0.85em;
   color: #00d4ff;
+}
+
+.stat-image {
+  width: 60px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #2a2a4a 0%, #1a1a3e 100%);
+  flex-shrink: 0;
+}
+
+.stat-image-placeholder {
+  width: 60px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #2a2a4a 0%, #1a1a3e 100%);
+  border-radius: 6px;
+  font-size: 1.2em;
+  flex-shrink: 0;
 }
 
 /* Duplicates List */

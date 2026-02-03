@@ -704,9 +704,11 @@ class VideoDatabase:
         获取各分类视频统计 (Get video count statistics by category)
 
         Returns:
-            分类统计列表，包含分类名和视频数量
+            分类统计列表，包含分类名、视频数量和示例图片
         """
         cursor = self.connection.cursor()
+        
+        # Get category counts first
         cursor.execute('''
             SELECT video_category, COUNT(*) as video_count
             FROM videos
@@ -715,7 +717,39 @@ class VideoDatabase:
             ORDER BY video_count DESC
         ''')
         rows = cursor.fetchall()
-        return [dict(row) if isinstance(row, dict) else dict(row) for row in rows]
+        
+        # Build result with sample images for each category
+        result = []
+        placeholder = '%s' if self.use_mysql else '?'
+        
+        for row in rows:
+            row_dict = dict(row) if isinstance(row, dict) else dict(row)
+            category = row_dict['video_category']
+            
+            # Get a sample image for this category
+            cursor.execute(
+                f'''SELECT video_image FROM videos 
+                    WHERE video_category = {placeholder} 
+                    AND video_image IS NOT NULL 
+                    AND video_image != '' 
+                    ORDER BY upload_time DESC 
+                    LIMIT 1''',
+                (category,)
+            )
+            sample_row = cursor.fetchone()
+            
+            sample_image = ''
+            if sample_row:
+                sample_dict = dict(sample_row) if isinstance(sample_row, dict) else dict(sample_row)
+                sample_image = sample_dict.get('video_image', '')
+            
+            result.append({
+                'video_category': category,
+                'video_count': row_dict['video_count'],
+                'sample_image': sample_image
+            })
+        
+        return result
 
     # SQL expression for normalizing video titles (removing spaces and common separators)
     # Used in find_duplicates to identify similar titles like "海绵宝宝" and "海绵宝 宝"
