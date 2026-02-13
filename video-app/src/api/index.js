@@ -78,7 +78,7 @@ function getCacheKey(url, params = {}) {
 }
 
 // Get API base URL from environment variable
-// VITE_API_BASE_URL should be set to the API server URL without the /api suffix (e.g., http://103.74.193.179:5000)
+// VITE_API_BASE_URL should be set to the API server URL without the /api suffix (e.g., http://103.74.193.179:5001)
 // In development, the Vite dev server proxies /api requests, so we can use relative path
 const getApiBaseUrl = () => {
   const envBaseUrl = import.meta.env.VITE_API_BASE_URL

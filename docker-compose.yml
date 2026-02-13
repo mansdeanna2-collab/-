@@ -9,7 +9,7 @@ services:
     container_name: video-api
     restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "5001:5000"
     volumes:
       - video-data:/app/data
       - ./tools/video_database.py:/app/video_database.py:ro

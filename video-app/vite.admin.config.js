@@ -7,7 +7,7 @@ import fs from 'fs'
 // This builds the admin app separately from the main web/h5 app
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const apiBaseUrl = env.VITE_API_BASE_URL || 'http://103.74.193.179:5000'
+  const apiBaseUrl = env.VITE_API_BASE_URL || 'http://103.74.193.179:5001'
   
   return {
     plugins: [
