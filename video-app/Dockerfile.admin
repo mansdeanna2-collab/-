@@ -24,7 +24,7 @@ COPY nginx.admin.conf /etc/nginx/conf.d/default.conf
 # Copy built admin files
 COPY --from=build /app/dist-admin /usr/share/nginx/html
 
-# Expose port 80 (internally, mapped to 8899 externally in docker-compose)
+# Expose port 80 (internally, mapped to 8897 externally in docker-compose)
 EXPOSE 80
 
 # Health check

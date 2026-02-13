@@ -48,7 +48,7 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       host: '0.0.0.0',
-      port: 8899,
+      port: 8897,
       proxy: {
         '/api': {
           target: apiBaseUrl,
