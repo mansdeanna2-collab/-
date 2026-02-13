@@ -518,7 +518,7 @@ services:
     container_name: video-api
     restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "5001:5000"
     volumes:
       - video-data:/app/data
       - ./tools/video_database.py:/app/video_database.py:ro
@@ -686,7 +686,7 @@ def deploy_application(base_dir: str, build: bool = True,
     print_success("部署完成!")
     print(f"\n{Colors.GREEN}访问地址:{Colors.RESET}")
     print("  - 前端: http://localhost:8898")
-    print("  - API:  http://localhost:5000/api")
+    print("  - API:  http://localhost:5001/api")
 
     return True
 

@@ -120,7 +120,7 @@ sudo python3 deploy.py --clean      # 清理所有容器和镜像
 
 部署完成后:
 - 前端: http://localhost:8898
-- API: http://103.74.193.179:5000/api
+- API: http://103.74.193.179:5001/api
 
 ## 手动安装
 
@@ -203,7 +203,7 @@ export MYSQL_PASSWORD=your_password
 
 ## API 服务器配置
 
-前端应用需要连接后端 API 服务器。默认配置连接到 `http://103.74.193.179:5000`。
+前端应用需要连接后端 API 服务器。默认配置连接到 `http://103.74.193.179:5001`。
 
 ### 配置自定义 API 地址
 
@@ -215,7 +215,7 @@ export MYSQL_PASSWORD=your_password
 
 2. 编辑 `.env.local` 文件，设置您的 API 服务器地址:
    ```bash
-   VITE_API_BASE_URL=http://your-api-server:5000
+   VITE_API_BASE_URL=http://your-api-server:5001
    ```
 
 3. 重启开发服务器:
@@ -236,7 +236,7 @@ export MYSQL_PASSWORD=your_password
 2. 设置环境变量指向本地服务器:
    ```bash
    # .env.local
-   VITE_API_BASE_URL=http://103.74.193.179:5000
+   VITE_API_BASE_URL=http://103.74.193.179:5001
    ```
 
 ### 故障排除
