@@ -542,7 +542,7 @@ services:
     container_name: video-frontend
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - "8898:80"
     depends_on:
       api:
         condition: service_healthy
@@ -685,7 +685,7 @@ def deploy_application(base_dir: str, build: bool = True,
 
     print_success("部署完成!")
     print(f"\n{Colors.GREEN}访问地址:{Colors.RESET}")
-    print("  - 前端: http://localhost:8080")
+    print("  - 前端: http://localhost:8898")
     print("  - API:  http://localhost:5000/api")
 
     return True

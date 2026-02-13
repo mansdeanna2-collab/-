@@ -119,7 +119,7 @@ sudo python3 deploy.py --clean      # 清理所有容器和镜像
 ### 访问应用
 
 部署完成后:
-- 前端: http://localhost:8080
+- 前端: http://localhost:8898
 - API: http://103.74.193.179:5000/api
 
 ## 手动安装

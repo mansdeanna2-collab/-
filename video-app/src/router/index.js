@@ -58,7 +58,7 @@ const routes = [
     component: ProfileView,
     meta: { title: '个人中心' }
   }
-  // Admin Routes removed - admin is now a separate application on port 8899
+  // Admin Routes removed - admin is now a separate application on port 8897
   // Use `npm run dev:admin` to start the admin server
 ]
 

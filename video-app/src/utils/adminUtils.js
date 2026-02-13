@@ -4,11 +4,11 @@
  */
 
 /**
- * Detect if running in standalone admin mode (port 8899)
- * @returns {boolean} True if running on port 8899
+ * Detect if running in standalone admin mode (port 8897)
+ * @returns {boolean} True if running on port 8897
  */
 export function isStandaloneMode() {
-  return window.location.port === '8899'
+  return window.location.port === '8897'
 }
 
 /**
