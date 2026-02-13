@@ -450,9 +450,29 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \\
     nginx_conf = os.path.join(base_dir, 'video-app', 'nginx.conf')
     if not os.path.exists(nginx_conf):
         print_step("创建Nginx配置...")
-        nginx_conf_content = '''server {
+        nginx_conf_content = '''# HTTP -> HTTPS redirect
+server {
     listen 80;
-    server_name localhost;
+    server_name www.wuzikali.com;
+    return 301 https://$host$request_uri;
+}
+
+# HTTPS server
+server {
+    listen 443 ssl;
+    server_name www.wuzikali.com;
+
+    # SSL certificate configuration
+    ssl_certificate /etc/nginx/ssl/cert.pem;
+    ssl_certificate_key /etc/nginx/ssl/key.pem;
+
+    # SSL settings
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
     root /usr/share/nginx/html;
     index index.html;
 
@@ -461,6 +481,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \\
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection "1; mode=block" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
     # Gzip compression
     gzip on;
@@ -525,6 +546,7 @@ services:
     environment:
       - USE_MYSQL=false
       - PYTHONUNBUFFERED=1
+      - DOCKER_API_VERSION=1.42
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
       interval: 30s
@@ -542,7 +564,14 @@ services:
     container_name: video-frontend
     restart: unless-stopped
     ports:
-      - "8898:80"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./sz/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./sz/ssl/cert.pem:/etc/nginx/ssl/cert.pem:ro
+      - ./sz/ssl/key.pem:/etc/nginx/ssl/key.pem:ro
+    environment:
+      - DOCKER_API_VERSION=1.42
     depends_on:
       api:
         condition: service_healthy
@@ -649,6 +678,10 @@ def deploy_application(base_dir: str, build: bool = True,
     """
     print_header("部署应用")
 
+    # 设置DOCKER_API_VERSION环境变量
+    os.environ['DOCKER_API_VERSION'] = '1.42'
+    print_success("已设置 DOCKER_API_VERSION=1.42")
+
     compose_cmd = get_compose_command()
     os.chdir(base_dir)
 
@@ -685,7 +718,8 @@ def deploy_application(base_dir: str, build: bool = True,
 
     print_success("部署完成!")
     print(f"\n{Colors.GREEN}访问地址:{Colors.RESET}")
-    print("  - 前端: http://localhost:8898")
+    print("  - 前端(HTTPS): https://www.wuzikali.com")
+    print("  - 前端(HTTP):  http://www.wuzikali.com (自动跳转HTTPS)")
     print("  - API:  http://localhost:5001/api")
 
     return True
